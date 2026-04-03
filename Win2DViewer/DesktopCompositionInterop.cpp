@@ -220,6 +220,34 @@ namespace
                     RenderFrame();
                 }
                 return 0;
+            case WM_MOUSEMOVE:
+                if (backend == desktopinterop::DesktopHostBackend::DirectComposition)
+                {
+                    HandleDirectCompositionMouseMove(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+                    return 0;
+                }
+                break;
+            case WM_MOUSELEAVE:
+                if (backend == desktopinterop::DesktopHostBackend::DirectComposition)
+                {
+                    HandleDirectCompositionMouseLeave();
+                    return 0;
+                }
+                break;
+            case WM_LBUTTONDOWN:
+                if (backend == desktopinterop::DesktopHostBackend::DirectComposition)
+                {
+                    HandleDirectCompositionLButtonDown(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+                    return 0;
+                }
+                break;
+            case WM_LBUTTONUP:
+                if (backend == desktopinterop::DesktopHostBackend::DirectComposition)
+                {
+                    HandleDirectCompositionLButtonUp(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+                    return 0;
+                }
+                break;
             case WM_PAINT:
             {
                 PAINTSTRUCT paintStruct{};
@@ -228,11 +256,17 @@ namespace
                 return 0;
             }
             case WM_DESTROY:
+                if (dcompOverlayDragging && ::GetCapture() == windowHandle)
+                {
+                    ::ReleaseCapture();
+                }
                 ::KillTimer(windowHandle, kRenderTimerId);
                 return 0;
             default:
                 return ::DefWindowProcW(windowHandle, message, wParam, lParam);
             }
+
+            return ::DefWindowProcW(windowHandle, message, wParam, lParam);
         }
 
         static LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
@@ -481,12 +515,47 @@ namespace
 
             ns::wr::check_hresult(dcompDevice->CreateTargetForHwnd(windowHandle, TRUE, dcompTarget.put()));
             ns::wr::check_hresult(dcompDevice->CreateVisual(dcompVisual.put()));
+            ns::wr::check_hresult(dcompDevice->CreateVisual(dcompBackgroundVisual.put()));
+            ns::wr::check_hresult(dcompDevice->CreateVisual(dcompOverlayVisual.put()));
 
             InitializeDirectCompositionPipeline();
             ResizeDirectCompositionSwapChain();
-            ns::wr::check_hresult(dcompVisual->SetContent(dcompSwapChain.get()));
+            ns::wr::check_hresult(dcompBackgroundVisual->SetContent(dcompSwapChain.get()));
+            ns::wr::check_hresult(dcompOverlayVisual->SetContent(dcompOverlaySwapChain.get()));
+            ns::wr::check_hresult(dcompVisual->AddVisual(dcompBackgroundVisual.get(), FALSE, nullptr));
+            ns::wr::check_hresult(dcompVisual->AddVisual(dcompOverlayVisual.get(), TRUE, dcompBackgroundVisual.get()));
             ns::wr::check_hresult(dcompTarget->SetRoot(dcompVisual.get()));
             ns::wr::check_hresult(dcompDevice->Commit());
+        }
+
+        void CreateDCompCompositionSwapChain(DXGI_ALPHA_MODE alphaMode, UINT width, UINT height, IDXGISwapChain1** swapChain)
+        {
+            auto dxgiDevice = d3dDevice.as<IDXGIDevice>();
+            ns::wr::com_ptr<IDXGIAdapter> adapter;
+            ns::wr::check_hresult(dxgiDevice->GetAdapter(adapter.put()));
+
+            ns::wr::com_ptr<IDXGIFactory2> dxgiFactory;
+            ns::wr::check_hresult(adapter->GetParent(__uuidof(IDXGIFactory2), dxgiFactory.put_void()));
+
+            DXGI_SWAP_CHAIN_DESC1 swapChainDesc{};
+            swapChainDesc.Width = width;
+            swapChainDesc.Height = height;
+            swapChainDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+            swapChainDesc.Stereo = FALSE;
+            swapChainDesc.SampleDesc.Count = 1;
+            swapChainDesc.SampleDesc.Quality = 0;
+            swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+            swapChainDesc.BufferCount = 2;
+            swapChainDesc.Scaling = DXGI_SCALING_STRETCH;
+            swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
+            swapChainDesc.AlphaMode = alphaMode;
+            swapChainDesc.Flags = 0;
+
+            ns::wr::check_hresult(dxgiFactory->CreateSwapChainForComposition(
+                d3dDevice.get(),
+                &swapChainDesc,
+                nullptr,
+                swapChain));
         }
 
         struct DCompFlowConstants
@@ -496,6 +565,16 @@ namespace
             float _padding0 = 0.0f;
             float colorDark[4]{};
             float colorGold[4]{};
+            float params[4]{};
+        };
+
+        struct DCompOverlayConstants
+        {
+            float resolution[2]{};
+            float mouse[2]{};
+            float handle[2]{};
+            float time = 0.0f;
+            float _padding0 = 0.0f;
             float params[4]{};
         };
 
@@ -909,6 +988,118 @@ namespace
                 }
             )";
 
+            static constexpr char kOverlayPixelShaderSource[] = R"(
+                cbuffer OverlayConstants : register(b0)
+                {
+                    float2 gResolution;
+                    float2 gMouse;
+                    float2 gHandle;
+                    float gTime;
+                    float gPadding0;
+                    float4 gParams;
+                };
+
+                float SdRoundedRect(float2 p, float2 center, float2 halfSize, float radius)
+                {
+                    float2 d = abs(p - center) - halfSize + radius;
+                    return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - radius;
+                }
+
+                float SdSegment(float2 p, float2 a, float2 b)
+                {
+                    float2 pa = p - a;
+                    float2 ba = b - a;
+                    float h = saturate(dot(pa, ba) / max(dot(ba, ba), 0.0001));
+                    return length(pa - ba * h);
+                }
+
+                float FillMask(float sdf, float feather)
+                {
+                    return 1.0 - smoothstep(0.0, max(feather, 0.0001), sdf);
+                }
+
+                void Composite(inout float4 dst, float3 srcColor, float srcAlpha)
+                {
+                    dst.rgb = srcColor * srcAlpha + dst.rgb * (1.0 - srcAlpha);
+                    dst.a = srcAlpha + dst.a * (1.0 - srcAlpha);
+                }
+
+                float4 main(float4 position : SV_Position, float2 uv : TEXCOORD0) : SV_Target
+                {
+                    const float2 px = position.xy;
+                    const float margin = 28.0;
+                    const float panelWidth = min(gResolution.x * 0.36, 372.0);
+                    const float panelHeight = min(gResolution.y * 0.34, 206.0);
+                    const float2 panelHalf = float2(panelWidth * 0.5, panelHeight * 0.5);
+                    const float2 panelCenter = float2(gResolution.x - margin - panelHalf.x, margin + panelHalf.y);
+
+                    const float panelSdf = SdRoundedRect(px, panelCenter, panelHalf, 24.0);
+                    const float panelMask = FillMask(panelSdf, 2.0);
+
+                    float4 output = float4(0.0, 0.0, 0.0, 0.0);
+                    const float3 panelColor = lerp(float3(0.10, 0.11, 0.14), float3(0.15, 0.10, 0.11), 0.5 + 0.5 * sin(gTime * 0.26));
+                    Composite(output, panelColor, panelMask * 0.78);
+
+                    const float2 chipSize = float2(panelWidth * 0.28, 34.0);
+                    const float chipGap = 14.0;
+                    const float2 chip1Center = panelCenter + float2(-panelHalf.x + 28.0 + chipSize.x * 0.5, -panelHalf.y + 30.0);
+                    const float2 chip2Center = chip1Center + float2(chipSize.x + chipGap, 0.0);
+                    const float chip1Mask = FillMask(SdRoundedRect(px, chip1Center, chipSize * 0.5, 16.0), 1.5);
+                    const float chip2Mask = FillMask(SdRoundedRect(px, chip2Center, chipSize * 0.5, 16.0), 1.5);
+
+                    const float hoverPrimary = saturate(gParams.x);
+                    const float hoverSecondary = saturate(gParams.y);
+                    const float accentToggle = saturate(gParams.z);
+                    const float dragging = saturate(gParams.w);
+
+                    const float3 chip1Color = lerp(float3(0.83, 0.31, 0.28), float3(0.98, 0.49, 0.38), 0.45 + hoverPrimary * 0.35 + accentToggle * 0.12);
+                    const float3 chip2Color = lerp(float3(0.93, 0.72, 0.58), float3(0.99, 0.82, 0.68), 0.28 + hoverSecondary * 0.34 + (1.0 - accentToggle) * 0.10);
+                    Composite(output, chip1Color, chip1Mask * (0.78 + hoverPrimary * 0.12));
+                    Composite(output, chip2Color, chip2Mask * (0.66 + hoverSecondary * 0.14));
+
+                    const float2 fieldMin = panelCenter + float2(-panelHalf.x + 22.0, -8.0);
+                    const float2 fieldMax = panelCenter + float2(panelHalf.x - 22.0, panelHalf.y - 20.0);
+                    const float2 fieldCenter = (fieldMin + fieldMax) * 0.5;
+                    const float2 fieldHalf = (fieldMax - fieldMin) * 0.5;
+                    const float fieldMask = FillMask(SdRoundedRect(px, fieldCenter, fieldHalf, 18.0), 1.4);
+
+                    const float2 nodeA = float2(fieldMin.x + 26.0, fieldMax.y - 28.0 + sin(gTime * 0.62) * 8.0);
+                    const float2 nodeB = gHandle;
+                    const float2 nodeC = float2(fieldMax.x - 24.0, fieldMin.y + 24.0 + cos(gTime * 0.74) * 10.0);
+                    const float2 nodeD = lerp(nodeA, nodeC, 0.50) + float2(cos(gTime * 0.84), sin(gTime * 0.92)) * 22.0;
+
+                    const float linkAB = FillMask(SdSegment(px, nodeA, nodeB) - 5.0, 1.8);
+                    const float linkBC = FillMask(SdSegment(px, nodeB, nodeC) - 4.5, 1.8);
+                    const float linkAD = FillMask(SdSegment(px, nodeA, nodeD) - 3.8, 1.6);
+                    const float linkDC = FillMask(SdSegment(px, nodeD, nodeC) - 3.8, 1.6);
+                    const float linkMix = saturate(linkAB * 0.44 + linkBC * 0.40 + linkAD * 0.28 + linkDC * 0.28) * fieldMask;
+
+                    const float2 flowUv = (px - fieldMin) / max(fieldMax - fieldMin, float2(1.0, 1.0));
+                    const float sweep = sin((flowUv.x * 2.8 - flowUv.y * 1.4) * 3.14159 + gTime * 1.4 + accentToggle * 0.9) * 0.5 + 0.5;
+                    const float sweep2 = cos((flowUv.x * 1.2 + flowUv.y * 2.1) * 3.14159 - gTime * 1.1) * 0.5 + 0.5;
+                    const float3 linkColor = lerp(float3(0.96, 0.42, 0.38), float3(0.99, 0.76, 0.60), sweep * 0.58 + sweep2 * 0.18);
+                    Composite(output, linkColor, linkMix * (0.22 + dragging * 0.10));
+
+                    const float nodeMaskA = FillMask(length(px - nodeA) - 9.0, 1.4) * fieldMask;
+                    const float nodeMaskB = FillMask(length(px - nodeB) - 11.0, 1.6) * fieldMask;
+                    const float nodeMaskC = FillMask(length(px - nodeC) - 8.5, 1.4) * fieldMask;
+                    const float nodeMaskD = FillMask(length(px - nodeD) - 7.0, 1.3) * fieldMask;
+
+                    Composite(output, float3(0.98, 0.82, 0.70), nodeMaskA * 0.60);
+                    Composite(output, float3(1.00, 0.49, 0.40), nodeMaskB * (0.88 + dragging * 0.08));
+                    Composite(output, float3(0.99, 0.70, 0.56), nodeMaskC * 0.56);
+                    Composite(output, float3(0.98, 0.58, 0.48), nodeMaskD * 0.46);
+
+                    const float handleHalo = FillMask(length(px - nodeB) - 22.0, 10.0) * fieldMask;
+                    Composite(output, float3(1.00, 0.72, 0.62), handleHalo * 0.08);
+
+                    const float mouseHalo = FillMask(length(px - gMouse) - 20.0, 16.0) * panelMask;
+                    Composite(output, float3(1.0, 0.96, 0.92), mouseHalo * 0.12);
+
+                    return saturate(output);
+                }
+            )";
+
             UINT shaderFlags = D3DCOMPILE_ENABLE_STRICTNESS;
 #ifdef _DEBUG
             shaderFlags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
@@ -959,6 +1150,27 @@ namespace
                 nullptr,
                 dcompPixelShader.put()));
 
+            errorBlob = nullptr;
+            hr = ::D3DCompile(
+                kOverlayPixelShaderSource,
+                sizeof(kOverlayPixelShaderSource) - 1,
+                nullptr,
+                nullptr,
+                nullptr,
+                "main",
+                "ps_5_0",
+                shaderFlags,
+                0,
+                pixelShaderBlob.put(),
+                errorBlob.put());
+            ns::wr::check_hresult(hr);
+
+            ns::wr::check_hresult(d3dDevice->CreatePixelShader(
+                pixelShaderBlob->GetBufferPointer(),
+                pixelShaderBlob->GetBufferSize(),
+                nullptr,
+                dcompOverlayPixelShader.put()));
+
             D3D11_BUFFER_DESC constantBufferDesc{};
             constantBufferDesc.ByteWidth = sizeof(DCompFlowConstants);
             constantBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
@@ -967,6 +1179,9 @@ namespace
             constantBufferDesc.MiscFlags = 0;
             constantBufferDesc.StructureByteStride = 0;
             ns::wr::check_hresult(d3dDevice->CreateBuffer(&constantBufferDesc, nullptr, dcompConstantBuffer.put()));
+
+            constantBufferDesc.ByteWidth = sizeof(DCompOverlayConstants);
+            ns::wr::check_hresult(d3dDevice->CreateBuffer(&constantBufferDesc, nullptr, dcompOverlayConstantBuffer.put()));
         }
 
         void ResizeDirectCompositionSwapChain()
@@ -979,48 +1194,220 @@ namespace
 
             if (dcompSwapChain == nullptr)
             {
-                auto dxgiDevice = d3dDevice.as<IDXGIDevice>();
-                ns::wr::com_ptr<IDXGIAdapter> adapter;
-                ns::wr::check_hresult(dxgiDevice->GetAdapter(adapter.put()));
-
-                ns::wr::com_ptr<IDXGIFactory2> dxgiFactory;
-                ns::wr::check_hresult(adapter->GetParent(__uuidof(IDXGIFactory2), dxgiFactory.put_void()));
-
-                DXGI_SWAP_CHAIN_DESC1 swapChainDesc{};
-                swapChainDesc.Width = width;
-                swapChainDesc.Height = height;
-                swapChainDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-                swapChainDesc.Stereo = FALSE;
-                swapChainDesc.SampleDesc.Count = 1;
-                swapChainDesc.SampleDesc.Quality = 0;
-                swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-                swapChainDesc.BufferCount = 2;
-                swapChainDesc.Scaling = DXGI_SCALING_STRETCH;
-                swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
-                swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_IGNORE;
-                swapChainDesc.Flags = 0;
-
-                ns::wr::check_hresult(dxgiFactory->CreateSwapChainForComposition(
-                    d3dDevice.get(),
-                    &swapChainDesc,
-                    nullptr,
-                    dcompSwapChain.put()));
+                CreateDCompCompositionSwapChain(DXGI_ALPHA_MODE_IGNORE, width, height, dcompSwapChain.put());
+                CreateDCompCompositionSwapChain(DXGI_ALPHA_MODE_PREMULTIPLIED, width, height, dcompOverlaySwapChain.put());
             }
             else
             {
                 dcompRenderTargetView = nullptr;
+                dcompOverlayRenderTargetView = nullptr;
                 d3dContext->OMSetRenderTargets(0, nullptr, nullptr);
                 d3dContext->ClearState();
                 d3dContext->Flush();
                 ns::wr::check_hresult(dcompSwapChain->ResizeBuffers(2, width, height, DXGI_FORMAT_B8G8R8A8_UNORM, 0));
+                ns::wr::check_hresult(dcompOverlaySwapChain->ResizeBuffers(2, width, height, DXGI_FORMAT_B8G8R8A8_UNORM, 0));
             }
 
             ns::wr::com_ptr<ID3D11Texture2D> backBuffer;
             ns::wr::check_hresult(dcompSwapChain->GetBuffer(0, IID_PPV_ARGS(backBuffer.put())));
             ns::wr::check_hresult(d3dDevice->CreateRenderTargetView(backBuffer.get(), nullptr, dcompRenderTargetView.put()));
 
+            ns::wr::com_ptr<ID3D11Texture2D> overlayBackBuffer;
+            ns::wr::check_hresult(dcompOverlaySwapChain->GetBuffer(0, IID_PPV_ARGS(overlayBackBuffer.put())));
+            ns::wr::check_hresult(d3dDevice->CreateRenderTargetView(overlayBackBuffer.get(), nullptr, dcompOverlayRenderTargetView.put()));
+
             dcompPixelWidth = width;
             dcompPixelHeight = height;
+            ClampDCompOverlayHandle();
+        }
+
+        RECT GetDCompOverlayPanelRectPixels() const
+        {
+            const LONG panelWidth = static_cast<LONG>((std::min)(dcompPixelWidth * 36 / 100, 372u));
+            const LONG panelHeight = static_cast<LONG>((std::min)(dcompPixelHeight * 34 / 100, 206u));
+            RECT rect{};
+            rect.left = static_cast<LONG>(dcompPixelWidth) - 28 - panelWidth;
+            rect.top = 28;
+            rect.right = rect.left + panelWidth;
+            rect.bottom = rect.top + panelHeight;
+            return rect;
+        }
+
+        RECT GetDCompPrimaryChipRectPixels() const
+        {
+            const RECT panel = GetDCompOverlayPanelRectPixels();
+            const LONG chipWidth = (panel.right - panel.left) * 28 / 100;
+            RECT rect{};
+            rect.left = panel.left + 28;
+            rect.top = panel.top + 13;
+            rect.right = rect.left + chipWidth;
+            rect.bottom = rect.top + 34;
+            return rect;
+        }
+
+        RECT GetDCompSecondaryChipRectPixels() const
+        {
+            RECT rect = GetDCompPrimaryChipRectPixels();
+            const LONG gap = 14;
+            const LONG width = rect.right - rect.left;
+            rect.left += width + gap;
+            rect.right = rect.left + width;
+            return rect;
+        }
+
+        RECT GetDCompFieldRectPixels() const
+        {
+            const RECT panel = GetDCompOverlayPanelRectPixels();
+            RECT rect{};
+            rect.left = panel.left + 22;
+            rect.top = panel.top + 58;
+            rect.right = panel.right - 22;
+            rect.bottom = panel.bottom - 20;
+            return rect;
+        }
+
+        bool IsPointInsideRect(const RECT& rect, LONG x, LONG y) const
+        {
+            return x >= rect.left && x < rect.right && y >= rect.top && y < rect.bottom;
+        }
+
+        void ClampDCompOverlayHandle()
+        {
+            if (dcompPixelWidth == 0 || dcompPixelHeight == 0)
+            {
+                return;
+            }
+
+            const RECT fieldRect = GetDCompFieldRectPixels();
+            if (!dcompOverlayHandleInitialized)
+            {
+                dcompOverlayHandleX = Lerp(static_cast<float>(fieldRect.left), static_cast<float>(fieldRect.right), 0.58f);
+                dcompOverlayHandleY = Lerp(static_cast<float>(fieldRect.bottom), static_cast<float>(fieldRect.top), 0.46f);
+                dcompOverlayHandleInitialized = true;
+            }
+
+            dcompOverlayHandleX = (std::max)(static_cast<float>(fieldRect.left + 12), (std::min)(static_cast<float>(fieldRect.right - 12), dcompOverlayHandleX));
+            dcompOverlayHandleY = (std::max)(static_cast<float>(fieldRect.top + 12), (std::min)(static_cast<float>(fieldRect.bottom - 12), dcompOverlayHandleY));
+        }
+
+        void UpdateDCompOverlayHoverState(LONG x, LONG y)
+        {
+            dcompMouseX = static_cast<float>(x);
+            dcompMouseY = static_cast<float>(y);
+            dcompHoverPrimary = IsPointInsideRect(GetDCompPrimaryChipRectPixels(), x, y);
+            dcompHoverSecondary = IsPointInsideRect(GetDCompSecondaryChipRectPixels(), x, y);
+
+            const float dx = dcompOverlayHandleX - static_cast<float>(x);
+            const float dy = dcompOverlayHandleY - static_cast<float>(y);
+            dcompHoverHandle = ((dx * dx) + (dy * dy)) <= (18.0f * 18.0f);
+        }
+
+        void HandleDirectCompositionMouseMove(LONG x, LONG y)
+        {
+            if (!dcompMouseTracking)
+            {
+                TRACKMOUSEEVENT trackMouseEvent{};
+                trackMouseEvent.cbSize = sizeof(trackMouseEvent);
+                trackMouseEvent.dwFlags = TME_LEAVE;
+                trackMouseEvent.hwndTrack = windowHandle;
+                ::TrackMouseEvent(&trackMouseEvent);
+                dcompMouseTracking = true;
+            }
+
+            dcompMouseInside = true;
+            UpdateDCompOverlayHoverState(x, y);
+
+            if (dcompOverlayDragging)
+            {
+                dcompOverlayHandleX = static_cast<float>(x);
+                dcompOverlayHandleY = static_cast<float>(y);
+                ClampDCompOverlayHandle();
+            }
+        }
+
+        void HandleDirectCompositionMouseLeave()
+        {
+            dcompMouseTracking = false;
+            dcompMouseInside = false;
+            dcompHoverPrimary = false;
+            dcompHoverSecondary = false;
+            dcompHoverHandle = false;
+        }
+
+        void HandleDirectCompositionLButtonDown(LONG x, LONG y)
+        {
+            UpdateDCompOverlayHoverState(x, y);
+
+            if (dcompHoverPrimary)
+            {
+                dcompOverlayAccentEnabled = !dcompOverlayAccentEnabled;
+            }
+            else if (dcompHoverSecondary)
+            {
+                dcompOverlayLinkBoost = !dcompOverlayLinkBoost;
+            }
+            else if (dcompHoverHandle || IsPointInsideRect(GetDCompFieldRectPixels(), x, y))
+            {
+                dcompOverlayDragging = true;
+                dcompOverlayHandleX = static_cast<float>(x);
+                dcompOverlayHandleY = static_cast<float>(y);
+                ClampDCompOverlayHandle();
+                ::SetCapture(windowHandle);
+            }
+        }
+
+        void HandleDirectCompositionLButtonUp(LONG x, LONG y)
+        {
+            UpdateDCompOverlayHoverState(x, y);
+            if (dcompOverlayDragging)
+            {
+                dcompOverlayDragging = false;
+                ::ReleaseCapture();
+            }
+        }
+
+        void RenderDirectCompositionOverlay()
+        {
+            if (dcompOverlaySwapChain == nullptr || dcompOverlayRenderTargetView == nullptr || dcompOverlayConstantBuffer == nullptr)
+            {
+                return;
+            }
+
+            D3D11_MAPPED_SUBRESOURCE mapped{};
+            HRESULT mapHr = d3dContext->Map(dcompOverlayConstantBuffer.get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+            if (FAILED(mapHr))
+            {
+                return;
+            }
+
+            auto* constants = reinterpret_cast<DCompOverlayConstants*>(mapped.pData);
+            constants->resolution[0] = static_cast<float>(dcompPixelWidth);
+            constants->resolution[1] = static_cast<float>(dcompPixelHeight);
+            constants->mouse[0] = dcompMouseX;
+            constants->mouse[1] = dcompMouseY;
+            constants->handle[0] = dcompOverlayHandleX;
+            constants->handle[1] = dcompOverlayHandleY;
+            constants->time = animationPhase;
+            constants->params[0] = dcompHoverPrimary ? 1.0f : 0.0f;
+            constants->params[1] = dcompHoverSecondary ? 1.0f : 0.0f;
+            constants->params[2] = dcompOverlayAccentEnabled ? 1.0f : 0.0f;
+            constants->params[3] = dcompOverlayDragging ? 1.0f : (dcompOverlayLinkBoost ? 0.55f : 0.0f);
+            d3dContext->Unmap(dcompOverlayConstantBuffer.get(), 0);
+
+            const float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+            d3dContext->ClearRenderTargetView(dcompOverlayRenderTargetView.get(), clearColor);
+
+            ID3D11RenderTargetView* renderTargetViews[] = { dcompOverlayRenderTargetView.get() };
+            d3dContext->OMSetRenderTargets(1, renderTargetViews, nullptr);
+            d3dContext->IASetInputLayout(nullptr);
+            d3dContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            d3dContext->VSSetShader(dcompVertexShader.get(), nullptr, 0);
+            d3dContext->PSSetShader(dcompOverlayPixelShader.get(), nullptr, 0);
+            ID3D11Buffer* constantBuffers[] = { dcompOverlayConstantBuffer.get() };
+            d3dContext->PSSetConstantBuffers(0, 1, constantBuffers);
+            d3dContext->Draw(3, 0);
+
+            (void)dcompOverlaySwapChain->Present(1, 0);
         }
 
         void RenderDirectCompositionFrame()
@@ -1075,6 +1462,7 @@ namespace
             d3dContext->Draw(3, 0);
 
             (void)dcompSwapChain->Present(1, 0);
+            RenderDirectCompositionOverlay();
         }
 
         void HandleResize()
@@ -1145,13 +1533,32 @@ namespace
         ns::wr::com_ptr<IDCompositionDevice> dcompDevice;
         ns::wr::com_ptr<IDCompositionTarget> dcompTarget;
         ns::wr::com_ptr<IDCompositionVisual> dcompVisual;
+        ns::wr::com_ptr<IDCompositionVisual> dcompBackgroundVisual;
+        ns::wr::com_ptr<IDCompositionVisual> dcompOverlayVisual;
         ns::wr::com_ptr<IDXGISwapChain1> dcompSwapChain;
+        ns::wr::com_ptr<IDXGISwapChain1> dcompOverlaySwapChain;
         ns::wr::com_ptr<ID3D11RenderTargetView> dcompRenderTargetView;
+        ns::wr::com_ptr<ID3D11RenderTargetView> dcompOverlayRenderTargetView;
         ns::wr::com_ptr<ID3D11VertexShader> dcompVertexShader;
         ns::wr::com_ptr<ID3D11PixelShader> dcompPixelShader;
+        ns::wr::com_ptr<ID3D11PixelShader> dcompOverlayPixelShader;
         ns::wr::com_ptr<ID3D11Buffer> dcompConstantBuffer;
+        ns::wr::com_ptr<ID3D11Buffer> dcompOverlayConstantBuffer;
         UINT dcompPixelWidth = 0;
         UINT dcompPixelHeight = 0;
+        bool dcompMouseTracking = false;
+        bool dcompMouseInside = false;
+        bool dcompHoverPrimary = false;
+        bool dcompHoverSecondary = false;
+        bool dcompHoverHandle = false;
+        bool dcompOverlayDragging = false;
+        bool dcompOverlayAccentEnabled = true;
+        bool dcompOverlayLinkBoost = false;
+        bool dcompOverlayHandleInitialized = false;
+        float dcompMouseX = 0.0f;
+        float dcompMouseY = 0.0f;
+        float dcompOverlayHandleX = 0.0f;
+        float dcompOverlayHandleY = 0.0f;
     };
 
     class DesktopHostTestPanelWindow
