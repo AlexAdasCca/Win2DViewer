@@ -11,7 +11,6 @@
 #include <Windows.Graphics.Interop.h>
 #include <windows.ui.composition.interop.h>
 #include <cstdio>
-#include <iostream>
 #include <regex>
 #include <sstream>
 #include <unordered_map>
@@ -26,6 +25,8 @@
 
 #include "Win2DViewer.h"
 #include "Win2DView.h"
+#include "ConsoleMenuInjection.h"
+#include "ConsoleTextWriter.h"
 #include "DisplaySyncHelper.h"
 
 namespace ns
@@ -58,6 +59,7 @@ namespace
     DisplaySyncHelper displaySyncHelper;
     bool gDampScrolling = true;
     bool gConsoleAllocated = false;
+    bool gConsoleOwnedByApp = false;
 
     ns::wfn::float3x2 IdentityTransform()
     {
@@ -141,8 +143,38 @@ namespace
         freopen_s(&stream, "CONOUT$", "w", stdout);
         freopen_s(&stream, "CONOUT$", "w", stderr);
         freopen_s(&stream, "CONIN$", "r", stdin);
+        diagnosticconsole::ConfigureUnicodeConsole();
         gConsoleAllocated = true;
-        std::wcout << L"[ConsoleDebug] Console attached." << std::endl;
+        gConsoleOwnedByApp = true;
+        consolemenu::SetInjectionDiagnosticsEnabled(true);
+        diagnosticconsole::WriteLine(L"[ConsoleDebug] Console attached.");
+        consolemenu::BeginConsoleHookInjectionAsync();
+    }
+
+    void ReleaseDebugConsole()
+    {
+        if (!gConsoleAllocated)
+        {
+            return;
+        }
+
+        fflush(stdout);
+        fflush(stderr);
+
+        FILE* stream = nullptr;
+        freopen_s(&stream, "NUL:", "w", stdout);
+        freopen_s(&stream, "NUL:", "w", stderr);
+        freopen_s(&stream, "NUL:", "r", stdin);
+
+        if (gConsoleOwnedByApp)
+        {
+            ::FreeConsole();
+        }
+
+        gConsoleAllocated = false;
+        gConsoleOwnedByApp = false;
+        consolemenu::SetInjectionDiagnosticsEnabled(false);
+        consolemenu::ResetConsoleHookState();
     }
 
     void DebugPrintLine(std::wstring const& line)
@@ -152,7 +184,7 @@ namespace
             return;
         }
 
-        std::wcout << line << std::endl;
+        diagnosticconsole::WriteLine(line);
     }
 
     std::wstring InlineSvgClassStyles(std::wstring svgText)
@@ -695,6 +727,7 @@ void CWin2DView::SetConsoleDebugEnabled(bool enabled) noexcept
     else
     {
         DebugPrintLine(L"[ConsoleDebug] enabled=0");
+        ReleaseDebugConsole();
     }
 }
 
@@ -1503,6 +1536,8 @@ LRESULT CWin2DView::OnDestroy(UINT, WPARAM, LPARAM, BOOL&)
         svgDocument.Close();
         svgDocument = nullptr;
     }
+    consoleDebugEnabled = false;
+    ReleaseDebugConsole();
     return 0;
 }
 

@@ -2,6 +2,7 @@
 
 #include "Resource.h"
 #include "SvgDocument.h"
+#include "SystemMenuExtensions.h"
 #include "Win2DView.h"
 
 class CMainFrame
@@ -20,6 +21,8 @@ public:
         MESSAGE_HANDLER(WM_ERASEBKGND, OnEraseBkgnd)
         MESSAGE_HANDLER(WM_DESTROY, OnDestroy)
         MESSAGE_HANDLER(WM_DROPFILES, OnDropFiles)
+        MESSAGE_HANDLER(WM_INITMENUPOPUP, OnInitMenuPopup)
+        MESSAGE_HANDLER(WM_SYSCOMMAND, OnSysCommand)
         COMMAND_ID_HANDLER(ID_FILE_NEW, OnFileNew)
         COMMAND_ID_HANDLER(ID_FILE_OPEN, OnFileOpen)
         COMMAND_ID_HANDLER(ID_APP_EXIT, OnFileExit)
@@ -37,14 +40,18 @@ public:
 private:
     void ApplyDocument();
     void InitializeToolBar();
+    void InitializeSystemMenu();
     void EnableWindowBackdrop();
     void UpdateWindowTitle();
     void UpdateLayerMenuState();
+    void UpdateSystemMenuState(HMENU menuHandle);
 
     LRESULT OnCreate(UINT, WPARAM, LPARAM, BOOL&);
     LRESULT OnEraseBkgnd(UINT, WPARAM, LPARAM, BOOL&);
     LRESULT OnDestroy(UINT, WPARAM, LPARAM, BOOL&);
     LRESULT OnDropFiles(UINT, WPARAM, LPARAM, BOOL&);
+    LRESULT OnInitMenuPopup(UINT, WPARAM, LPARAM, BOOL&);
+    LRESULT OnSysCommand(UINT, WPARAM, LPARAM, BOOL&);
     LRESULT OnFileNew(WORD, WORD, HWND, BOOL&);
     LRESULT OnFileOpen(WORD, WORD, HWND, BOOL&);
     LRESULT OnFileExit(WORD, WORD, HWND, BOOL&);
@@ -61,5 +68,7 @@ private:
     CSvgDocument document;
     CWin2DView view;
     bool consoleDebugEnabled = false;
+    bool isWindowTopMost = false;
+    systemmenu::MenuHost systemMenuHost{ L"MainFrame.SystemMenu" };
 };
 

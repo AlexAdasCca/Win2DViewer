@@ -4,6 +4,7 @@
 
 #include "DesktopCompositionInterop.h"
 #include "MainFrm.h"
+#include "SystemMenuExtensions.h"
 #include "Win2DViewer.h"
 
 #pragma comment(lib, "dwmapi.lib")
@@ -75,10 +76,21 @@ namespace
             return ID_VIEW_LAYER_EFFECT_OVER_SVG;
         }
     }
+
+    void ShowAboutDialog(HWND ownerWindow)
+    {
+        const std::wstring message = LoadAppString(IDS_APP_TITLE) + L"\nWTL host for Win2D SVG rendering.";
+        AtlMessageBox(ownerWindow, message.c_str(), IDS_APP_TITLE, MB_OK | MB_ICONINFORMATION);
+    }
 }
 
 BOOL CMainFrame::PreTranslateMessage(MSG* pMsg)
 {
+    if (systemMenuHost.HandleShortcut(m_hWnd, pMsg->message, pMsg->wParam))
+    {
+        return TRUE;
+    }
+
     if (CFrameWindowImpl<CMainFrame>::PreTranslateMessage(pMsg))
     {
         return TRUE;
@@ -106,6 +118,7 @@ LRESULT CMainFrame::OnCreate(UINT, WPARAM, LPARAM, BOOL&)
 
     EnableWindowBackdrop();
     InitializeToolBar();
+    InitializeSystemMenu();
     UpdateLayout();
 
     view.SetDocument(&document);
@@ -156,6 +169,29 @@ LRESULT CMainFrame::OnDropFiles(UINT, WPARAM wParam, LPARAM, BOOL&)
     return 0;
 }
 
+LRESULT CMainFrame::OnInitMenuPopup(UINT, WPARAM wParam, LPARAM, BOOL&)
+{
+    HMENU menuHandle = reinterpret_cast<HMENU>(wParam);
+    if (menuHandle != nullptr)
+    {
+        UpdateSystemMenuState(menuHandle);
+    }
+
+    return 0;
+}
+
+LRESULT CMainFrame::OnSysCommand(UINT, WPARAM wParam, LPARAM, BOOL& bHandled)
+{
+    const UINT_PTR commandId = (wParam & 0xFFF0);
+    if (systemMenuHost.HandleCommand(m_hWnd, commandId))
+    {
+        return 0;
+    }
+
+    bHandled = FALSE;
+    return 0;
+}
+
 LRESULT CMainFrame::OnFileNew(WORD, WORD, HWND, BOOL&)
 {
     document.Clear();
@@ -181,8 +217,7 @@ LRESULT CMainFrame::OnFileExit(WORD, WORD, HWND, BOOL&)
 
 LRESULT CMainFrame::OnAppAbout(WORD, WORD, HWND, BOOL&)
 {
-    const std::wstring message = LoadAppString(IDS_APP_TITLE) + L"\nWTL host for Win2D SVG rendering.";
-    AtlMessageBox(m_hWnd, message.c_str(), IDS_APP_TITLE, MB_OK | MB_ICONINFORMATION);
+    ShowAboutDialog(m_hWnd);
     return 0;
 }
 
@@ -270,6 +305,67 @@ void CMainFrame::InitializeToolBar()
     ::ShowWindow(m_hWndToolBar, SW_SHOW);
 }
 
+void CMainFrame::InitializeSystemMenu()
+{
+    HMENU systemMenu = GetSystemMenu(FALSE);
+    if (systemMenu == nullptr)
+    {
+        return;
+    }
+
+    if (systemMenuHost.Items().empty())
+    {
+        std::wstring errorMessage;
+
+        systemmenu::MenuItemSpec topMostItem{};
+        topMostItem.id = systemmenu::kCommandWindowTopMost;
+        topMostItem.text = L"\u7A97\u53E3\u7F6E\u9876";
+        topMostItem.shortcut = systemmenu::ShortcutBinding{};
+        topMostItem.shortcut->virtualKey = 'T';
+        topMostItem.shortcut->ctrl = true;
+        topMostItem.shortcut->alt = true;
+        topMostItem.onInvoke = [this](HWND windowHandle)
+        {
+            isWindowTopMost = !isWindowTopMost;
+            ::SetWindowPos(
+                windowHandle,
+                isWindowTopMost ? HWND_TOPMOST : HWND_NOTOPMOST,
+                0,
+                0,
+                0,
+                0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        };
+        topMostItem.isChecked = [this]() { return isWindowTopMost; };
+        topMostItem.isEnabled = []() { return true; };
+
+        systemmenu::MenuItemSpec separator{};
+        separator.separator = true;
+
+        systemmenu::MenuItemSpec aboutItem{};
+        aboutItem.id = systemmenu::kCommandAbout;
+        aboutItem.text = L"\u6253\u5F00\u5173\u4E8E";
+        aboutItem.shortcut = systemmenu::ShortcutBinding{};
+        aboutItem.shortcut->virtualKey = VK_F1;
+        aboutItem.shortcut->alt = true;
+        aboutItem.onInvoke = [](HWND windowHandle) { ShowAboutDialog(windowHandle); };
+        aboutItem.isEnabled = []() { return true; };
+
+        (void)systemMenuHost.AddItem(separator, &errorMessage);
+        (void)systemMenuHost.AddItem(std::move(topMostItem), &errorMessage);
+        (void)systemMenuHost.AddItem(std::move(aboutItem), &errorMessage);
+    }
+
+    std::wstring errorMessage;
+    if (!systemMenuHost.Install(systemMenu, &errorMessage))
+    {
+        AtlMessageBox(m_hWnd, errorMessage.c_str(), IDS_APP_TITLE, MB_OK | MB_ICONERROR);
+        return;
+    }
+
+    UpdateSystemMenuState(systemMenu);
+}
+
 void CMainFrame::EnableWindowBackdrop()
 {
     const BOOL darkMode = TRUE;
@@ -320,5 +416,16 @@ void CMainFrame::UpdateLayerMenuState()
         menuHandle,
         ID_VIEW_CONSOLE_DEBUG,
         MF_BYCOMMAND | (consoleDebugEnabled ? MF_CHECKED : MF_UNCHECKED));
+}
+
+void CMainFrame::UpdateSystemMenuState(HMENU menuHandle)
+{
+    HMENU systemMenu = GetSystemMenu(FALSE);
+    if (menuHandle == nullptr || systemMenu == nullptr || menuHandle != systemMenu)
+    {
+        return;
+    }
+
+    systemMenuHost.RefreshState(systemMenu);
 }
 

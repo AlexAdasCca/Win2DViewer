@@ -1,9 +1,13 @@
-
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.28307.902
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36119.2 d17.14
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Win2DViewer", "Win2DViewer\Win2DViewer.vcxproj", "{990A429D-3CEB-4479-9EB6-E27597B33332}"
+	ProjectSection(ProjectDependencies) = postProject
+		{F2F6152C-9159-4DB4-91A2-493D6A6975FA} = {F2F6152C-9159-4DB4-91A2-493D6A6975FA}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ConsoleMenuHook", "ConsoleMenuHook\ConsoleMenuHook.vcxproj", "{F2F6152C-9159-4DB4-91A2-493D6A6975FA}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -27,6 +31,18 @@ Global
 		{990A429D-3CEB-4479-9EB6-E27597B33332}.Release|x64.Build.0 = Release|x64
 		{990A429D-3CEB-4479-9EB6-E27597B33332}.Release|x86.ActiveCfg = Release|Win32
 		{990A429D-3CEB-4479-9EB6-E27597B33332}.Release|x86.Build.0 = Release|Win32
+		{F2F6152C-9159-4DB4-91A2-493D6A6975FA}.Debug|ARM64.ActiveCfg = Debug|x64
+		{F2F6152C-9159-4DB4-91A2-493D6A6975FA}.Debug|ARM64.Build.0 = Debug|x64
+		{F2F6152C-9159-4DB4-91A2-493D6A6975FA}.Debug|x64.ActiveCfg = Debug|x64
+		{F2F6152C-9159-4DB4-91A2-493D6A6975FA}.Debug|x64.Build.0 = Debug|x64
+		{F2F6152C-9159-4DB4-91A2-493D6A6975FA}.Debug|x86.ActiveCfg = Debug|Win32
+		{F2F6152C-9159-4DB4-91A2-493D6A6975FA}.Debug|x86.Build.0 = Debug|Win32
+		{F2F6152C-9159-4DB4-91A2-493D6A6975FA}.Release|ARM64.ActiveCfg = Release|x64
+		{F2F6152C-9159-4DB4-91A2-493D6A6975FA}.Release|ARM64.Build.0 = Release|x64
+		{F2F6152C-9159-4DB4-91A2-493D6A6975FA}.Release|x64.ActiveCfg = Release|x64
+		{F2F6152C-9159-4DB4-91A2-493D6A6975FA}.Release|x64.Build.0 = Release|x64
+		{F2F6152C-9159-4DB4-91A2-493D6A6975FA}.Release|x86.ActiveCfg = Release|Win32
+		{F2F6152C-9159-4DB4-91A2-493D6A6975FA}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -35,6 +51,3 @@ Global
 		SolutionGuid = {94883023-F960-4695-90E8-7AB315D8623B}
 	EndGlobalSection
 EndGlobal
-
-
-

@@ -299,6 +299,8 @@
     </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="ConsoleMenuInjection.h" />
+    <ClInclude Include="ConsoleTextWriter.h" />
     <ClInclude Include="DisplaySyncHelper.h" />
     <ClInclude Include="DesktopCompositionInterop.h" />
     <ClInclude Include="devicelost.h" />
@@ -311,6 +313,7 @@
     <ClInclude Include="Win2DViewer.h" />
     <ClInclude Include="WinrtNsAliases.h" />
     <ClInclude Include="SvgDocument.h" />
+    <ClInclude Include="SystemMenuExtensions.h" />
     <ClInclude Include="Win2DView.h" />
   </ItemGroup>
   <ItemGroup>
@@ -320,6 +323,9 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ConsoleMenuInjection.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="DesktopCompositionInterop.cpp" />
     <ClCompile Include="DisplaySyncHelper.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
