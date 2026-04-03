@@ -11,6 +11,7 @@ namespace desktopinterop
     {
         WinRTComposition = 0,
         DirectComposition = 1,
+        WinRTHostBackdrop = 2,
     };
 
     wna::wd::sys::DispatcherQueueController CreateDispatcherQueueControllerForCurrentThread();
@@ -19,4 +20,3 @@ namespace desktopinterop
     bool CreateDesktopHostTestWindow(DesktopHostBackend backend, std::wstring* errorMessage = nullptr);
     void ShowDesktopHostTestPanel(HWND ownerWindow);
 }
-

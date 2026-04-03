@@ -1,7 +1,9 @@
 #include "pch.h"
 
 #include <d3d11.h>
+#include <d3dcompiler.h>
 #include <dcomp.h>
+#include <dwmapi.h>
 #include <dxgi1_2.h>
 #include <DispatcherQueue.h>
 #include <windows.ui.composition.interop.h>
@@ -16,7 +18,9 @@
 #include "DesktopCompositionInterop.h"
 
 #pragma comment(lib, "d3d11.lib")
+#pragma comment(lib, "d3dcompiler.lib")
 #pragma comment(lib, "dcomp.lib")
+#pragma comment(lib, "dwmapi.lib")
 #pragma comment(lib, "dxgi.lib")
 
 namespace ns
@@ -43,6 +47,13 @@ namespace
     constexpr int kPanelButtonWinRt = 2001;
     constexpr int kPanelButtonDComp = 2002;
     constexpr int kPanelButtonBoth = 2003;
+    constexpr int kPanelButtonWinRtBackdrop = 2004;
+
+#ifndef DWMWA_USE_HOSTBACKDROPBRUSH
+    constexpr DWORD kDwmAttrUseHostBackdropBrush = 17;
+#else
+    constexpr DWORD kDwmAttrUseHostBackdropBrush = static_cast<DWORD>(DWMWA_USE_HOSTBACKDROPBRUSH);
+#endif
 
     std::optional<ns::wus::DispatcherQueueController> gDispatcherQueueController;
     class DesktopHostWindow;
@@ -82,6 +93,29 @@ namespace
         }
     }
 
+    float Clamp01(float value)
+    {
+        return (std::max)(0.0f, (std::min)(1.0f, value));
+    }
+
+    float Lerp(float a, float b, float t)
+    {
+        return a + ((b - a) * t);
+    }
+
+    uint8_t ToByte(float value)
+    {
+        return static_cast<uint8_t>(Clamp01(value) * 255.0f + 0.5f);
+    }
+
+    uint32_t PackBgra(uint8_t b, uint8_t g, uint8_t r)
+    {
+        return (static_cast<uint32_t>(0xFF) << 24) |
+            (static_cast<uint32_t>(r) << 16) |
+            (static_cast<uint32_t>(g) << 8) |
+            static_cast<uint32_t>(b);
+    }
+
     class DesktopHostWindow
     {
     public:
@@ -101,9 +135,15 @@ namespace
             windowClass.style = CS_HREDRAW | CS_VREDRAW;
             ::RegisterClassW(&windowClass);
 
-            const wchar_t* windowTitle = (backend == desktopinterop::DesktopHostBackend::WinRTComposition)
-                ? L"Desktop Host - WinRT Composition Surface"
-                : L"Desktop Host - DirectComposition Surface";
+            const wchar_t* windowTitle = L"Desktop Host - WinRT Composition Surface";
+            if (backend == desktopinterop::DesktopHostBackend::DirectComposition)
+            {
+                windowTitle = L"Desktop Host - DirectComposition Flow Material";
+            }
+            else if (backend == desktopinterop::DesktopHostBackend::WinRTHostBackdrop)
+            {
+                windowTitle = L"Desktop Host - WinRT Host Backdrop Material";
+            }
 
             const DWORD exStyle = WS_EX_APPWINDOW | WS_EX_NOREDIRECTIONBITMAP;
             const DWORD style = WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_CLIPSIBLINGS;
@@ -134,17 +174,18 @@ namespace
         {
             try
             {
-                if (backend == desktopinterop::DesktopHostBackend::WinRTComposition)
-                {
-                    InitializeWinRTComposition();
-                }
-                else
+                if (backend == desktopinterop::DesktopHostBackend::DirectComposition)
                 {
                     InitializeDirectComposition();
                 }
+                else
+                {
+                    InitializeWinRTComposition();
+                }
 
                 rendererInitialized = true;
-                ::SetTimer(windowHandle, kRenderTimerId, 16, nullptr);
+                const UINT timerInterval = 16;
+                ::SetTimer(windowHandle, kRenderTimerId, timerInterval, nullptr);
                 ::ShowWindow(windowHandle, SW_SHOWNORMAL);
                 ::UpdateWindow(windowHandle);
                 return true;
@@ -240,6 +281,20 @@ namespace
             rootVisual.RelativeSizeAdjustment({ 1.0f, 1.0f });
             compositionTarget.Root(rootVisual);
 
+            if (backend == desktopinterop::DesktopHostBackend::WinRTHostBackdrop)
+            {
+                EnableHostBackdropForWindow();
+                hostBackdropVisual = compositor.CreateSpriteVisual();
+                hostBackdropVisual.RelativeSizeAdjustment({ 1.0f, 1.0f });
+                hostBackdropVisual.Brush(compositor.CreateHostBackdropBrush());
+                rootVisual.Children().InsertAtTop(hostBackdropVisual);
+
+                hostTintVisual = compositor.CreateSpriteVisual();
+                hostTintVisual.RelativeSizeAdjustment({ 1.0f, 1.0f });
+                hostTintVisual.Brush(compositor.CreateColorBrush({ 0x7A, 0x0F, 0x1D, 0x2B }));
+                rootVisual.Children().InsertAtTop(hostTintVisual);
+            }
+
             canvasDevice = ns::mgc::CanvasDevice::GetSharedDevice();
             compositionGraphicsDevice = ns::mgcu::CanvasComposition::CreateCompositionGraphicsDevice(compositor, canvasDevice);
 
@@ -252,6 +307,16 @@ namespace
             surfaceVisual.RelativeSizeAdjustment({ 1.0f, 1.0f });
             surfaceVisual.Brush(surfaceBrush);
             rootVisual.Children().InsertAtTop(surfaceVisual);
+        }
+
+        void EnableHostBackdropForWindow() const
+        {
+            const BOOL enabled = TRUE;
+            (void)::DwmSetWindowAttribute(
+                windowHandle,
+                kDwmAttrUseHostBackdropBrush,
+                &enabled,
+                sizeof(enabled));
         }
 
         void ResizeWinRTSurface()
@@ -276,6 +341,7 @@ namespace
 
             surfacePixelWidth = width;
             surfacePixelHeight = height;
+            ClampWinRTBallPosition();
             DrawWinRTSurface();
         }
 
@@ -292,22 +358,115 @@ namespace
             const ns::wui::Color frameColor{ 0xFF, 0x2F, 0x6E, 0xB8 };
             const ns::wui::Color orbColor{ 0xFF, 0xFF, 0xA5, 0x00 };
             const ns::wui::Color textColor{ 0xFF, 0xF6, 0xF7, 0xFB };
+            const ns::wui::Color panelColor{ 0x98, 0x12, 0x1B, 0x25 };
+            const ns::wui::Color panelStroke{ 0xC0, 0x78, 0xB6, 0xF0 };
+            const ns::wui::Color velocityColor{ 0xD0, 0xFF, 0xE0, 0x66 };
 
-            drawingSession.Clear(backgroundColor);
+            if (backend == desktopinterop::DesktopHostBackend::WinRTComposition)
+            {
+                drawingSession.Clear(backgroundColor);
+            }
+            else
+            {
+                drawingSession.Clear(ns::wui::Color{ 0x00, 0x00, 0x00, 0x00 });
+            }
 
             const float width = static_cast<float>(surfacePixelWidth);
             const float height = static_cast<float>(surfacePixelHeight);
             const float inset = 20.0f;
             drawingSession.DrawRectangle(inset, inset, width - (inset * 2.0f), height - (inset * 2.0f), frameColor, 3.0f);
 
-            const float radius = (std::max)(28.0f, (std::min)(width, height) * 0.10f);
-            const float orbitX = (std::max)(20.0f, (width * 0.5f) - radius - 32.0f);
-            const float orbitY = (std::max)(20.0f, (height * 0.5f) - radius - 32.0f);
-            const float centerX = (width * 0.5f) + std::cos(animationPhase) * orbitX;
-            const float centerY = (height * 0.5f) + std::sin(animationPhase * 1.3f) * orbitY;
-            drawingSession.FillCircle({ centerX, centerY }, radius, orbColor);
+            const float radius = ballRadius;
+            drawingSession.FillCircle(ballPosition, radius, orbColor);
 
-            drawingSession.DrawText(L"WinRT Composition + Win2D Surface", { 30.0f, 30.0f }, textColor);
+            const float velocityScale = 0.12f;
+            const ns::wfn::float2 velocityTip
+            {
+                ballPosition.x + ballVelocity.x * velocityScale,
+                ballPosition.y + ballVelocity.y * velocityScale
+            };
+            drawingSession.DrawLine(ballPosition, velocityTip, velocityColor, 3.0f);
+            drawingSession.DrawCircle(ballPosition, radius + 6.0f, { 0x80, 0xFF, 0xD7, 0x8C }, 2.0f);
+
+            drawingSession.FillRoundedRectangle({ 24.0f, height - 110.0f, width - 48.0f, 76.0f }, 12.0f, 12.0f, panelColor);
+            drawingSession.DrawRoundedRectangle({ 24.0f, height - 110.0f, width - 48.0f, 76.0f }, 12.0f, 12.0f, panelStroke, 1.5f);
+
+            const std::wstring title = (backend == desktopinterop::DesktopHostBackend::WinRTHostBackdrop)
+                ? L"WinRT Host Backdrop Material - Physics Test"
+                : L"WinRT Composition Surface - Physics Test";
+            drawingSession.DrawText(title, { 30.0f, 30.0f }, textColor);
+
+            wchar_t infoLine[256]{};
+            _snwprintf_s(
+                infoLine,
+                _TRUNCATE,
+                L"Ball(%.1f, %.1f)  Velocity(%.1f, %.1f)  Radius %.1f",
+                ballPosition.x,
+                ballPosition.y,
+                ballVelocity.x,
+                ballVelocity.y,
+                ballRadius);
+            drawingSession.DrawText(infoLine, { 36.0f, height - 88.0f }, textColor);
+        }
+
+        void UpdateWinRTPhysics(float deltaSeconds)
+        {
+            if (surfacePixelWidth <= 0 || surfacePixelHeight <= 0)
+            {
+                return;
+            }
+
+            ballPosition.x += ballVelocity.x * deltaSeconds;
+            ballPosition.y += ballVelocity.y * deltaSeconds;
+
+            const float left = 20.0f + ballRadius;
+            const float right = static_cast<float>(surfacePixelWidth) - 20.0f - ballRadius;
+            const float top = 20.0f + ballRadius;
+            const float bottom = static_cast<float>(surfacePixelHeight) - 20.0f - ballRadius;
+
+            if (ballPosition.x < left)
+            {
+                ballPosition.x = left + (left - ballPosition.x);
+                ballVelocity.x = std::abs(ballVelocity.x) * 0.95f;
+            }
+            else if (ballPosition.x > right)
+            {
+                ballPosition.x = right - (ballPosition.x - right);
+                ballVelocity.x = -std::abs(ballVelocity.x) * 0.95f;
+            }
+
+            if (ballPosition.y < top)
+            {
+                ballPosition.y = top + (top - ballPosition.y);
+                ballVelocity.y = std::abs(ballVelocity.y) * 0.95f;
+            }
+            else if (ballPosition.y > bottom)
+            {
+                ballPosition.y = bottom - (ballPosition.y - bottom);
+                ballVelocity.y = -std::abs(ballVelocity.y) * 0.95f;
+            }
+        }
+
+        void ClampWinRTBallPosition()
+        {
+            const float minDimension = static_cast<float>((std::min)(surfacePixelWidth, surfacePixelHeight));
+            ballRadius = (std::max)(26.0f, minDimension * 0.08f);
+
+            const float left = 20.0f + ballRadius;
+            const float right = static_cast<float>(surfacePixelWidth) - 20.0f - ballRadius;
+            const float top = 20.0f + ballRadius;
+            const float bottom = static_cast<float>(surfacePixelHeight) - 20.0f - ballRadius;
+
+            if (!physicsInitialized)
+            {
+                ballPosition = { static_cast<float>(surfacePixelWidth) * 0.5f, static_cast<float>(surfacePixelHeight) * 0.5f };
+                ballVelocity = { 300.0f, 220.0f };
+                physicsInitialized = true;
+                return;
+            }
+
+            ballPosition.x = (std::max)(left, (std::min)(right, ballPosition.x));
+            ballPosition.y = (std::max)(top, (std::min)(bottom, ballPosition.y));
         }
 
         void InitializeDirectComposition()
@@ -323,11 +482,22 @@ namespace
             ns::wr::check_hresult(dcompDevice->CreateTargetForHwnd(windowHandle, TRUE, dcompTarget.put()));
             ns::wr::check_hresult(dcompDevice->CreateVisual(dcompVisual.put()));
 
+            InitializeDirectCompositionPipeline();
             ResizeDirectCompositionSwapChain();
             ns::wr::check_hresult(dcompVisual->SetContent(dcompSwapChain.get()));
             ns::wr::check_hresult(dcompTarget->SetRoot(dcompVisual.get()));
             ns::wr::check_hresult(dcompDevice->Commit());
         }
+
+        struct DCompFlowConstants
+        {
+            float time = 0.0f;
+            float resolution[2]{};
+            float _padding0 = 0.0f;
+            float colorDark[4]{};
+            float colorGold[4]{};
+            float params[4]{};
+        };
 
         void CreateD3D11Device()
         {
@@ -393,6 +563,412 @@ namespace
             ns::wr::check_hresult(hr);
         }
 
+        void InitializeDirectCompositionPipeline()
+        {
+            static constexpr char kVertexShaderSource[] = R"(
+                struct VSOut
+                {
+                    float4 position : SV_Position;
+                    float2 uv : TEXCOORD0;
+                };
+
+                VSOut main(uint vertexId : SV_VertexID)
+                {
+                    float2 pos;
+                    if (vertexId == 0) { pos = float2(-1.0, -1.0); }
+                    else if (vertexId == 1) { pos = float2(-1.0, 3.0); }
+                    else { pos = float2(3.0, -1.0); }
+
+                    VSOut output;
+                    output.position = float4(pos, 0.0, 1.0);
+                    output.uv = pos * 0.5 + 0.5;
+                    return output;
+                }
+            )";
+
+            static constexpr char kPixelShaderSource[] = R"(
+                cbuffer FlowConstants : register(b0)
+                {
+                    float gTime;
+                    float2 gResolution;
+                    float gPadding0;
+                    float4 gColorDark;
+                    float4 gColorGold;
+                    float4 gParams;
+                };
+
+                float Hash21(float2 p)
+                {
+                    p = frac(p * float2(123.34, 456.21));
+                    p += dot(p, p + 45.32);
+                    return frac(p.x * p.y);
+                }
+
+                float2 Hash22(float2 p)
+                {
+                    float n = Hash21(p);
+                    return float2(n, Hash21(p + n + 19.19));
+                }
+
+                float Noise(float2 p)
+                {
+                    float2 i = floor(p);
+                    float2 f = frac(p);
+                    float2 u = f * f * (3.0 - 2.0 * f);
+
+                    float a = Hash21(i);
+                    float b = Hash21(i + float2(1.0, 0.0));
+                    float c = Hash21(i + float2(0.0, 1.0));
+                    float d = Hash21(i + float2(1.0, 1.0));
+
+                    return lerp(lerp(a, b, u.x), lerp(c, d, u.x), u.y);
+                }
+
+                float Fbm(float2 p)
+                {
+                    float value = 0.0;
+                    float amplitude = 0.55;
+                    [unroll]
+                    for (int i = 0; i < 4; ++i)
+                    {
+                        value += Noise(p) * amplitude;
+                        p = mul(float2x2(1.62, -1.18, 1.18, 1.62), p) + 9.7;
+                        amplitude *= 0.52;
+                    }
+                    return value;
+                }
+
+                float2 Rotate(float2 p, float angle)
+                {
+                    float s = sin(angle);
+                    float c = cos(angle);
+                    return float2(c * p.x - s * p.y, s * p.x + c * p.y);
+                }
+
+                void PickPalette(float t, out float3 colorA, out float3 colorB)
+                {
+                    static const float3 paletteA[6] =
+                    {
+                        float3(0.66, 0.13, 0.16),
+                        float3(0.70, 0.12, 0.24),
+                        float3(0.62, 0.18, 0.14),
+                        float3(0.74, 0.14, 0.20),
+                        float3(0.68, 0.16, 0.12),
+                        float3(0.72, 0.13, 0.28)
+                    };
+                    static const float3 paletteB[6] =
+                    {
+                        float3(0.99, 0.36, 0.30),
+                        float3(1.00, 0.46, 0.50),
+                        float3(1.00, 0.50, 0.34),
+                        float3(0.99, 0.42, 0.38),
+                        float3(0.98, 0.54, 0.40),
+                        float3(1.00, 0.46, 0.58)
+                    };
+
+                    const float k = t * 0.11;
+                    const float idx = floor(k);
+                    const float fracK = smoothstep(0.0, 1.0, frac(k));
+                    const int i0 = (int)fmod(idx, 6.0);
+                    const int i1 = (i0 + 1) % 6;
+
+                    colorA = lerp(paletteA[i0], paletteA[i1], fracK);
+                    colorB = lerp(paletteB[i0], paletteB[i1], fracK);
+
+                    colorA = lerp(colorA, gColorDark.rgb, 0.05);
+                    colorB = lerp(colorB, gColorGold.rgb, 0.04);
+                }
+
+                void PickBackgroundPalette(float t, out float3 bgA, out float3 bgB)
+                {
+                    static const float3 paletteBgA[4] =
+                    {
+                        float3(0.80, 0.72, 0.60),
+                        float3(0.82, 0.68, 0.61),
+                        float3(0.78, 0.71, 0.64),
+                        float3(0.84, 0.70, 0.60)
+                    };
+                    static const float3 paletteBgB[4] =
+                    {
+                        float3(0.97, 0.86, 0.76),
+                        float3(0.98, 0.80, 0.74),
+                        float3(0.95, 0.85, 0.80),
+                        float3(0.99, 0.84, 0.73)
+                    };
+
+                    const float k = t * 0.035;
+                    const float idx = floor(k);
+                    const float fracK = smoothstep(0.0, 1.0, frac(k));
+                    const int i0 = (int)fmod(idx, 4.0);
+                    const int i1 = (i0 + 1) % 4;
+
+                    bgA = lerp(paletteBgA[i0], paletteBgA[i1], fracK);
+                    bgB = lerp(paletteBgB[i0], paletteBgB[i1], fracK);
+                }
+            )"
+            R"(
+                float MetaballContribution(float2 p, float2 center, float radius, float aspect, float angle)
+                {
+                    float2 d = Rotate(p - center, angle);
+                    d /= float2(
+                        max(radius * aspect, 0.001),
+                        max(radius / max(aspect, 0.001), 0.001));
+
+                    const float dist2 = dot(d, d);
+                    return 1.0 / (1.0 + dist2 * 2.4);
+                }
+
+                float SegmentContribution(float2 p, float2 a, float2 b, float radius, float softness)
+                {
+                    const float2 ab = b - a;
+                    const float abLen2 = max(dot(ab, ab), 0.0001);
+                    const float t = saturate(dot(p - a, ab) / abLen2);
+                    const float2 closest = lerp(a, b, t);
+                    const float2 delta = p - closest;
+                    const float dist = length(delta) / max(radius, 0.001);
+                    return exp(-pow(dist, max(softness, 0.2)));
+                }
+
+                float4 main(float4 position : SV_Position, float2 uv : TEXCOORD0) : SV_Target
+                {
+                    const float flowSpeed = max(gParams.x, 0.2);
+                    const float paletteSpeed = max(gParams.y, 0.2);
+                    const float particleGain = max(gParams.z, 0.0);
+                    const float swirlGain = max(gParams.w, 0.2);
+
+                    const float time = gTime * flowSpeed;
+                    const float paletteTime = gTime * paletteSpeed;
+                    const float bgPaletteTime = gTime * max(paletteSpeed * 0.58, 0.18);
+                    float2 p = uv - 0.5;
+                    p.x *= gResolution.x / max(1.0, gResolution.y);
+
+                    float3 colorA;
+                    float3 colorB;
+                    PickPalette(paletteTime, colorA, colorB);
+
+                    float3 bgA;
+                    float3 bgB;
+                    PickBackgroundPalette(bgPaletteTime, bgA, bgB);
+
+                    const float bgFlowA = Fbm(p * 1.05 + float2(time * 0.06, -time * 0.04));
+                    const float bgFlowB = Fbm(Rotate(p * 0.88, 0.24) + float2(-time * 0.05, time * 0.03));
+                    const float bgAxis = saturate(0.50 + (bgFlowA - 0.5) * 0.34 + (bgFlowB - 0.5) * 0.24 + p.y * 0.11);
+                    float3 color = lerp(bgA, bgB, bgAxis);
+                    color = lerp(color, lerp(bgA, bgB, 0.62 + 0.12 * sin(p.x * 0.85 + paletteTime * 0.06)), 0.20);
+                    const float warmWashA = exp(-pow(length((p - float2(0.38, -0.14)) * float2(0.92, 1.04)) / 1.20, 2.0));
+                    const float warmWashB = exp(-pow(length((p - float2(-0.52, 0.24)) * float2(1.04, 0.96)) / 1.08, 2.0));
+                    color = lerp(color, lerp(bgA, bgB, 0.76), warmWashA * 0.18);
+                    color = lerp(color, lerp(bgA, bgB, 0.22), warmWashB * 0.14);
+
+                    const float focusPulse = 0.5 + 0.5 * sin(time * 0.70 + sin(time * 0.23) * 1.10 + cos(time * 0.11) * 0.72);
+                    const float gatherPulse = 0.5 + 0.5 * sin(time * 0.52 + sin(time * 0.17) * 0.92);
+                    const float driftPulse = 0.5 + 0.5 * cos(time * 0.40 + sin(time * 0.15) * 0.80);
+
+                    const float2 ingressDir = normalize(float2(
+                        cos(time * 0.14 + sin(time * 0.05) * 0.52),
+                        sin(time * 0.12 - cos(time * 0.06) * 0.48)));
+                    const float2 ingressNrm = float2(-ingressDir.y, ingressDir.x);
+                    const float2 sceneDrift = float2(
+                        sin(time * 0.045 + sin(time * 0.016) * 1.1),
+                        cos(time * 0.038 + cos(time * 0.018) * 0.9)) * float2(0.30, 0.22);
+                    const float2 hub0 = float2(
+                        1.18 * sin(time * 0.10 + 0.35) + 0.24 * sin(time * 0.24 + 2.10),
+                        0.62 * cos(time * 0.08 + 1.10)) + sceneDrift + ingressDir * 0.18;
+                    const float2 hub1 = float2(
+                        -0.18 + 0.82 * sin(time * 0.09 + 0.80) + 0.26 * sin(time * 0.18 + 1.90),
+                        -0.08 + 0.46 * cos(time * 0.07 + 1.30)) - sceneDrift * 0.36;
+                    const float2 hub2 = float2(
+                        1.02 * cos(time * 0.06 + 2.10) + 0.34 * sin(time * 0.14 + 0.50),
+                        -0.26 + 0.52 * sin(time * 0.09 + 1.70)) + sceneDrift * 0.28;
+                    const float2 hub3 = float2(
+                        -0.74 * cos(time * 0.05 + 0.50) + 0.56 * sin(time * 0.12 + 2.30),
+                        0.38 * sin(time * 0.08 + 2.40) + 0.28 * cos(time * 0.10 + 0.90)) - sceneDrift * 0.22;
+                    const float2 hubOpp = hub1 - ingressDir * (1.14 + 0.34 * driftPulse) + ingressNrm * (0.28 * sin(time * 0.20 + 0.7));
+
+                    const float2 flowWarp = float2(
+                        Fbm(p * 0.86 + float2(time * 0.22, -time * 0.18) + float2(1.6, -2.1)) - 0.5,
+                        Fbm(Rotate(p * 0.82, 0.42) + float2(-time * 0.20, time * 0.16) + float2(-1.8, 2.2)) - 0.5);
+                    const float2 coarseWarp = float2(
+                        Fbm(p * 0.42 + float2(time * 0.08, -time * 0.07) + float2(3.2, -1.4)) - 0.5,
+                        Fbm(Rotate(p * 0.38, 0.30) + float2(-time * 0.06, time * 0.05) + float2(-2.8, 2.5)) - 0.5);
+                    const float2 q = p + flowWarp * 0.06 + coarseWarp * 0.10;
+
+                    const float irregular = 0.5 + 0.5 * sin(time * 0.94 + sin(time * 0.37) * 1.40 + cos(time * 0.11) * 0.90);
+                    const float orbitMixA = 0.5 + 0.5 * sin(time * 1.02 + cos(time * 0.33) * 1.1);
+                    const float orbitMixB = 0.5 + 0.5 * sin(time * 0.88 + 1.7 + sin(time * 0.27) * 0.9);
+                    const float2 cA = hub1 + float2(-0.18, 0.05) * (0.30 + 0.74 * irregular) + float2(cos(time * 0.74), sin(time * 0.68)) * 0.05;
+                    const float2 cB = hub1 + float2(0.16, -0.04) * (0.28 + 0.78 * (1.0 - irregular)) + float2(cos(time * 0.66 + 1.6), sin(time * 0.72 + 0.8)) * 0.05;
+                    const float2 cC = hub1 + float2(0.04, 0.14) * (0.16 + 0.66 * focusPulse) + float2(cos(time * 0.82 + 2.2), sin(time * 0.76 + 1.1)) * 0.04;
+                    const float2 cD = hub1 + float2(-0.03, -0.16) * (0.16 + 0.62 * driftPulse) + float2(cos(time * 0.78 + 0.5), sin(time * 0.84 + 2.7)) * 0.04;
+                    const float2 dA = hub2 + float2(cos(time * 0.46 + 2.0), sin(time * 0.52 + 1.1)) * (0.16 + 0.10 * driftPulse);
+                    const float2 dB = hub2 + float2(cos(time * 0.58 + 0.8), sin(time * 0.62 + 2.4)) * (0.12 + 0.08 * focusPulse);
+                    const float2 dC = lerp(hub2, hub3, 0.46 + (orbitMixA - 0.5) * 0.18) + float2(cos(time * 0.40 + 0.7), sin(time * 0.44 + 1.5)) * 0.05;
+                    const float2 eA = hub3 + float2(cos(time * 0.44 + 1.7), sin(time * 0.50 + 0.3)) * (0.14 + 0.10 * gatherPulse);
+                    const float2 eB = hub3 + float2(cos(time * 0.54 + 2.6), sin(time * 0.58 + 1.6)) * (0.10 + 0.08 * focusPulse);
+                    const float2 oA = hubOpp + float2(cos(time * 0.42 + 2.7), sin(time * 0.48 + 0.9)) * (0.10 + 0.06 * orbitMixB);
+                    const float2 oB = hubOpp + float2(cos(time * 0.50 + 1.4), sin(time * 0.56 + 2.2)) * (0.08 + 0.05 * gatherPulse);
+
+                    float field = 0.0;
+                    field += MetaballContribution(q, hub0 + ingressDir * (-0.18 + gatherPulse * 0.08) + ingressNrm * 0.04, 0.24, 1.34, -0.14) * 0.22;
+                    field += MetaballContribution(q, hub0 + ingressDir * (0.08 + driftPulse * 0.18) - ingressNrm * (0.05 + 0.04 * focusPulse), 0.20, 1.24, 0.08) * 0.18;
+                    field += MetaballContribution(q, hub0 + float2(cos(time * 0.38 + 0.4), sin(time * 0.42 + 1.2)) * (0.10 + 0.05 * gatherPulse), 0.16, 1.18, 0.28) * 0.15;
+
+                    field += MetaballContribution(q, cA, 0.25, 1.18, 0.36) * 0.34;
+                    field += MetaballContribution(q, cB, 0.25, 1.20, -0.28) * 0.34;
+                    field += MetaballContribution(q, cC, 0.22, 1.14, 0.10) * 0.30;
+                    field += MetaballContribution(q, cD, 0.20, 1.08, -0.10) * 0.26;
+
+                    field += MetaballContribution(q, dA, 0.22, 1.20, -0.12) * 0.28;
+                    field += MetaballContribution(q, dB, 0.20, 1.16, 0.20) * 0.24;
+                    field += MetaballContribution(q, dC, 0.18, 1.12, -0.04) * 0.20;
+                    field += MetaballContribution(q, eA, 0.22, 1.18, 0.38) * 0.28;
+                    field += MetaballContribution(q, eB, 0.19, 1.12, -0.28) * 0.22;
+
+                    field += MetaballContribution(q, oA, 0.18, 1.18, -0.46) * 0.18;
+                    field += MetaballContribution(q, oB, 0.15, 1.12, 0.18) * 0.14;
+
+                    const float trailA = SegmentContribution(q, cA, cB, 0.48, 1.6) * 0.38;
+                    const float trailB = SegmentContribution(q, cB, dA, 0.42, 1.5) * 0.30;
+                    const float trailC = SegmentContribution(q, dB, eA, 0.46, 1.5) * 0.28;
+                    const float trailD = SegmentContribution(q, eB, oA, 0.52, 1.7) * 0.22;
+                    const float trailField = trailA + trailB + trailC + trailD;
+
+                    const float flowAxis = dot(q, ingressDir);
+                    const float crossAxis = dot(q, ingressNrm);
+                    const float sheetWaveA = Fbm(float2(flowAxis * 0.42 - time * 0.12, crossAxis * 0.72 + time * 0.10) + float2(1.4, -2.6));
+                    const float sheetWaveB = Fbm(float2(flowAxis * 0.58 + time * 0.14, crossAxis * 0.54 - time * 0.12) + float2(-2.8, 1.7));
+                    const float sheetDrift = sin(flowAxis * 1.4 - time * 0.34 + sheetWaveA * 1.8) * 0.24
+                        + cos(flowAxis * 0.9 + time * 0.28 + sheetWaveB * 1.5) * 0.18;
+                    const float sheetEnvelope = exp(-pow((crossAxis + sheetDrift) / 1.18, 2.0));
+                    const float sheetRidgeA = smoothstep(0.30, 0.82, sheetWaveA * 0.64 + sheetWaveB * 0.36);
+                    const float sheetRidgeB = smoothstep(0.26, 0.80, sheetWaveB * 0.58 + sheetWaveA * 0.42);
+                    const float sheetField = sheetEnvelope * (0.44 + sheetRidgeA * 0.34 + sheetRidgeB * 0.22);
+
+                    const float mistNoiseA = Fbm((q + coarseWarp * 0.48) * 0.72 + float2(-time * 0.16, time * 0.12));
+                    const float mistNoiseB = Fbm(Rotate(q * 0.68, -0.34) + float2(time * 0.14, -time * 0.10) + float2(2.8, -1.2));
+                    const float mistField = sheetField * 0.58 + field * 0.16 + trailField * 0.18 + mistNoiseA * 0.18 + mistNoiseB * 0.14;
+
+                    const float hazeMask = smoothstep(0.28, 0.86, mistField);
+                    const float bodyMask = smoothstep(0.37, 0.92, sheetField * 0.58 + trailField * 0.18 + field * 0.14 + mistNoiseA * 0.12);
+                    const float coreMask = smoothstep(0.53, 0.96, sheetField * 0.36 + field * 0.42 + trailField * 0.12);
+            )"
+            R"(
+                    const float2 nkx = float2(0.024, 0.000);
+                    const float2 nky = float2(0.000, 0.024);
+                    const float n0 = Fbm(q * 1.28 + float2(time * 0.38, -time * 0.30));
+                    const float n1 = Fbm((q + nkx) * 1.28 + float2(time * 0.38, -time * 0.30));
+                    const float n2 = Fbm((q - nkx) * 1.28 + float2(time * 0.38, -time * 0.30));
+                    const float n3 = Fbm((q + nky) * 1.28 + float2(time * 0.38, -time * 0.30));
+                    const float n4 = Fbm((q - nky) * 1.28 + float2(time * 0.38, -time * 0.30));
+                    const float n5 = Fbm((q + nkx + nky) * 1.28 + float2(time * 0.38, -time * 0.30));
+                    const float n6 = Fbm((q + nkx - nky) * 1.28 + float2(time * 0.38, -time * 0.30));
+                    const float n7 = Fbm((q - nkx + nky) * 1.28 + float2(time * 0.38, -time * 0.30));
+                    const float n8 = Fbm((q - nkx - nky) * 1.28 + float2(time * 0.38, -time * 0.30));
+                    const float blurNoise = n0 * 0.30 + (n1 + n2 + n3 + n4) * 0.12 + (n5 + n6 + n7 + n8) * 0.055;
+            )"
+            R"(
+                    const float swirlA = Fbm(Rotate(q * 0.92, 0.74) + float2(-time * 0.58, time * 0.48));
+                    const float swirlB = Fbm(q * 1.06 + float2(time * 0.52, -time * 0.46) + float2(2.4, -1.3));
+                    const float swirlC = Fbm((q + float2(swirlA - 0.5, swirlB - 0.5) * 0.24) * 1.18 + float2(-time * 0.44, time * 0.40));
+                    const float stirField = smoothstep(0.18, 0.82, swirlA * 0.34 + swirlB * 0.30 + swirlC * 0.36);
+                    const float2 stirOffset = float2(swirlA - swirlB, swirlC - swirlA) * (0.056 * max(hazeMask, bodyMask));
+
+                    const float motionField = smoothstep(0.28, 0.74, blurNoise * 0.46 + stirField * 0.34 + mistField * 0.20);
+                    const float warmShift = 0.5 + 0.5 * sin(time * 0.74 + motionField * 2.4 + q.x * 0.8 + q.y * 0.5);
+                    const float3 accentA = lerp(colorA, colorB, 0.48 + 0.14 * warmShift);
+                    const float3 accentB = lerp(colorA, colorB, 0.84 - 0.10 * warmShift);
+                    const float3 hazeColor = lerp(lerp(bgA, bgB, 0.54), lerp(accentA, accentB, 0.44 + 0.10 * warmShift), 0.48);
+                    const float3 edgeTint = lerp(hazeColor, lerp(bgA, bgB, 0.58), 0.18);
+                    const float colorField = saturate(0.28 + bodyMask * 0.20 + coreMask * 0.22 + motionField * 0.18 + (stirField - 0.5) * 0.30);
+                    float3 waveColor = lerp(edgeTint, lerp(accentA, accentB, colorField), smoothstep(0.20, 0.76, bodyMask + coreMask * 0.36));
+                    const float3 warmFocus = lerp(float3(0.99, 0.32, 0.28), float3(1.00, 0.46, 0.40), warmShift);
+                    waveColor = lerp(waveColor, warmFocus, 0.16 + coreMask * 0.12 + stirField * 0.06);
+
+                    color = lerp(color, hazeColor, hazeMask * (0.32 + motionField * 0.05));
+                    const float foregroundAlpha = saturate(hazeMask * 0.56 + bodyMask * 0.28 + coreMask * 0.10);
+                    color = lerp(color, waveColor, foregroundAlpha * 0.88);
+                    color += lerp(accentB, float3(1.0, 0.95, 0.92), 0.54) * coreMask * (0.018 + stirField * 0.020);
+
+                    const float2 refractOffset = (flowWarp * 0.012 + stirOffset + ingressDir * 0.008 * sin(time * 0.96 + dot(p, ingressDir) * 2.3)) * foregroundAlpha;
+                    const float2 refrP = p + refractOffset;
+                    const float refrAxis = saturate(0.60 + refrP.y * 0.08 + refrP.x * 0.05 + (Fbm(refrP * 1.12 + float2(time * 0.24, -time * 0.18)) - 0.5) * 0.10);
+                    const float3 refrColor = lerp(bgA, bgB, refrAxis);
+                    color = lerp(color, refrColor, foregroundAlpha * 0.015);
+
+                    const float mote = smoothstep(0.978, 1.0, Hash21((uv + flowWarp * 0.06 + stirOffset) * gResolution * 0.11 + time * 1.42));
+                    color += lerp(waveColor, float3(1.0, 1.0, 1.0), 0.42) * mote * (0.028 * particleGain);
+
+                    const float grain = Hash21(uv * gResolution * 0.26 + time * 6.0) - 0.5;
+                    color += grain * 0.010;
+
+                    const float vignette = 1.0 - smoothstep(1.02, 1.34, length(p));
+                    color *= lerp(0.97, 1.0, vignette);
+
+                    color = saturate(color);
+                    return float4(color, 1.0);
+                }
+            )";
+
+            UINT shaderFlags = D3DCOMPILE_ENABLE_STRICTNESS;
+#ifdef _DEBUG
+            shaderFlags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+#endif
+
+            ns::wr::com_ptr<ID3DBlob> vertexShaderBlob;
+            ns::wr::com_ptr<ID3DBlob> pixelShaderBlob;
+            ns::wr::com_ptr<ID3DBlob> errorBlob;
+
+            HRESULT hr = ::D3DCompile(
+                kVertexShaderSource,
+                sizeof(kVertexShaderSource) - 1,
+                nullptr,
+                nullptr,
+                nullptr,
+                "main",
+                "vs_5_0",
+                shaderFlags,
+                0,
+                vertexShaderBlob.put(),
+                errorBlob.put());
+            ns::wr::check_hresult(hr);
+
+            errorBlob = nullptr;
+            hr = ::D3DCompile(
+                kPixelShaderSource,
+                sizeof(kPixelShaderSource) - 1,
+                nullptr,
+                nullptr,
+                nullptr,
+                "main",
+                "ps_5_0",
+                shaderFlags,
+                0,
+                pixelShaderBlob.put(),
+                errorBlob.put());
+            ns::wr::check_hresult(hr);
+
+            ns::wr::check_hresult(d3dDevice->CreateVertexShader(
+                vertexShaderBlob->GetBufferPointer(),
+                vertexShaderBlob->GetBufferSize(),
+                nullptr,
+                dcompVertexShader.put()));
+
+            ns::wr::check_hresult(d3dDevice->CreatePixelShader(
+                pixelShaderBlob->GetBufferPointer(),
+                pixelShaderBlob->GetBufferSize(),
+                nullptr,
+                dcompPixelShader.put()));
+
+            D3D11_BUFFER_DESC constantBufferDesc{};
+            constantBufferDesc.ByteWidth = sizeof(DCompFlowConstants);
+            constantBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+            constantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+            constantBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+            constantBufferDesc.MiscFlags = 0;
+            constantBufferDesc.StructureByteStride = 0;
+            ns::wr::check_hresult(d3dDevice->CreateBuffer(&constantBufferDesc, nullptr, dcompConstantBuffer.put()));
+        }
+
         void ResizeDirectCompositionSwapChain()
         {
             RECT clientRect{};
@@ -432,59 +1008,110 @@ namespace
             }
             else
             {
-                d3dContext->OMSetRenderTargets(0, nullptr, nullptr);
                 dcompRenderTargetView = nullptr;
+                d3dContext->OMSetRenderTargets(0, nullptr, nullptr);
+                d3dContext->ClearState();
+                d3dContext->Flush();
                 ns::wr::check_hresult(dcompSwapChain->ResizeBuffers(2, width, height, DXGI_FORMAT_B8G8R8A8_UNORM, 0));
             }
 
             ns::wr::com_ptr<ID3D11Texture2D> backBuffer;
             ns::wr::check_hresult(dcompSwapChain->GetBuffer(0, IID_PPV_ARGS(backBuffer.put())));
             ns::wr::check_hresult(d3dDevice->CreateRenderTargetView(backBuffer.get(), nullptr, dcompRenderTargetView.put()));
+
+            dcompPixelWidth = width;
+            dcompPixelHeight = height;
         }
 
         void RenderDirectCompositionFrame()
         {
-            if (dcompRenderTargetView == nullptr || dcompSwapChain == nullptr)
+            if (dcompSwapChain == nullptr || dcompRenderTargetView == nullptr || dcompConstantBuffer == nullptr)
             {
                 return;
             }
 
-            const float red = 0.14f + 0.30f * (0.5f + 0.5f * std::sin(animationPhase * 0.90f));
-            const float green = 0.18f + 0.25f * (0.5f + 0.5f * std::sin(animationPhase * 1.35f + 1.1f));
-            const float blue = 0.24f + 0.35f * (0.5f + 0.5f * std::sin(animationPhase * 0.70f + 2.0f));
-            const float clearColor[4] = { red, green, blue, 1.0f };
+            D3D11_MAPPED_SUBRESOURCE mapped{};
+            HRESULT mapHr = d3dContext->Map(dcompConstantBuffer.get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+            if (FAILED(mapHr))
+            {
+                return;
+            }
+
+            auto* constants = reinterpret_cast<DCompFlowConstants*>(mapped.pData);
+            constants->time = animationPhase;
+            constants->resolution[0] = static_cast<float>(dcompPixelWidth);
+            constants->resolution[1] = static_cast<float>(dcompPixelHeight);
+            constants->colorDark[0] = 0.380f;
+            constants->colorDark[1] = 0.090f;
+            constants->colorDark[2] = 0.090f;
+            constants->colorDark[3] = 1.0f;
+            constants->colorGold[0] = 1.000f;
+            constants->colorGold[1] = 0.420f;
+            constants->colorGold[2] = 0.380f;
+            constants->colorGold[3] = 1.0f;
+            constants->params[0] = 1.78f;
+            constants->params[1] = 1.18f;
+            constants->params[2] = 0.46f;
+            constants->params[3] = 0.72f;
+            d3dContext->Unmap(dcompConstantBuffer.get(), 0);
+
+            D3D11_VIEWPORT viewport{};
+            viewport.TopLeftX = 0.0f;
+            viewport.TopLeftY = 0.0f;
+            viewport.Width = static_cast<float>(dcompPixelWidth);
+            viewport.Height = static_cast<float>(dcompPixelHeight);
+            viewport.MinDepth = 0.0f;
+            viewport.MaxDepth = 1.0f;
+            d3dContext->RSSetViewports(1, &viewport);
 
             ID3D11RenderTargetView* renderTargetViews[] = { dcompRenderTargetView.get() };
             d3dContext->OMSetRenderTargets(1, renderTargetViews, nullptr);
-            d3dContext->ClearRenderTargetView(dcompRenderTargetView.get(), clearColor);
+            d3dContext->IASetInputLayout(nullptr);
+            d3dContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            d3dContext->VSSetShader(dcompVertexShader.get(), nullptr, 0);
+            d3dContext->PSSetShader(dcompPixelShader.get(), nullptr, 0);
+            ID3D11Buffer* constantBuffers[] = { dcompConstantBuffer.get() };
+            d3dContext->PSSetConstantBuffers(0, 1, constantBuffers);
+            d3dContext->Draw(3, 0);
 
             (void)dcompSwapChain->Present(1, 0);
         }
 
         void HandleResize()
         {
-            if (backend == desktopinterop::DesktopHostBackend::WinRTComposition)
-            {
-                ResizeWinRTSurface();
-            }
-            else
+            if (backend == desktopinterop::DesktopHostBackend::DirectComposition)
             {
                 ResizeDirectCompositionSwapChain();
                 RenderDirectCompositionFrame();
+            }
+            else
+            {
+                ResizeWinRTSurface();
             }
         }
 
         void RenderFrame()
         {
-            animationPhase += 0.03f;
-
-            if (backend == desktopinterop::DesktopHostBackend::WinRTComposition)
+            const auto now = std::chrono::steady_clock::now();
+            float deltaSeconds = 1.0f / 60.0f;
+            if (hasLastFrameTime)
             {
-                DrawWinRTSurface();
+                deltaSeconds = std::chrono::duration<float>(now - lastFrameTime).count();
+                deltaSeconds = (std::max)(0.001f, (std::min)(0.050f, deltaSeconds));
+            }
+            lastFrameTime = now;
+            hasLastFrameTime = true;
+
+            animationPhase += deltaSeconds;
+
+            if (backend == desktopinterop::DesktopHostBackend::DirectComposition)
+            {
+                RenderDirectCompositionFrame();
             }
             else
             {
-                RenderDirectCompositionFrame();
+                UpdateWinRTPhysics(deltaSeconds);
+                DrawWinRTSurface();
             }
         }
 
@@ -493,12 +1120,20 @@ namespace
         HWND windowHandle = nullptr;
         bool rendererInitialized = false;
         float animationPhase = 0.0f;
+        bool hasLastFrameTime = false;
+        std::chrono::steady_clock::time_point lastFrameTime{};
         int surfacePixelWidth = 0;
         int surfacePixelHeight = 0;
+        bool physicsInitialized = false;
+        float ballRadius = 34.0f;
+        ns::wfn::float2 ballPosition{ 180.0f, 180.0f };
+        ns::wfn::float2 ballVelocity{ 300.0f, 220.0f };
 
         ns::wuc::Compositor compositor{ nullptr };
         ns::wud::DesktopWindowTarget compositionTarget{ nullptr };
         ns::wuc::ContainerVisual rootVisual{ nullptr };
+        ns::wuc::SpriteVisual hostBackdropVisual{ nullptr };
+        ns::wuc::SpriteVisual hostTintVisual{ nullptr };
         ns::wuc::SpriteVisual surfaceVisual{ nullptr };
         ns::wuc::CompositionSurfaceBrush surfaceBrush{ nullptr };
         ns::mgc::CanvasDevice canvasDevice{ nullptr };
@@ -512,6 +1147,11 @@ namespace
         ns::wr::com_ptr<IDCompositionVisual> dcompVisual;
         ns::wr::com_ptr<IDXGISwapChain1> dcompSwapChain;
         ns::wr::com_ptr<ID3D11RenderTargetView> dcompRenderTargetView;
+        ns::wr::com_ptr<ID3D11VertexShader> dcompVertexShader;
+        ns::wr::com_ptr<ID3D11PixelShader> dcompPixelShader;
+        ns::wr::com_ptr<ID3D11Buffer> dcompConstantBuffer;
+        UINT dcompPixelWidth = 0;
+        UINT dcompPixelHeight = 0;
     };
 
     class DesktopHostTestPanelWindow
@@ -630,7 +1270,7 @@ namespace
             winRtButton = ::CreateWindowExW(
                 0,
                 WC_BUTTONW,
-                L"Create WinRT Composition Host",
+                L"Create WinRT Physics Host",
                 WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
                 12,
                 60,
@@ -641,13 +1281,27 @@ namespace
                 ::GetModuleHandleW(nullptr),
                 nullptr);
 
-            dcompButton = ::CreateWindowExW(
+            winRtBackdropButton = ::CreateWindowExW(
                 0,
                 WC_BUTTONW,
-                L"Create DirectComposition Host",
+                L"Create WinRT Host Backdrop Host",
                 WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
                 272,
                 60,
+                250,
+                32,
+                windowHandle,
+                reinterpret_cast<HMENU>(static_cast<INT_PTR>(kPanelButtonWinRtBackdrop)),
+                ::GetModuleHandleW(nullptr),
+                nullptr);
+
+            dcompButton = ::CreateWindowExW(
+                0,
+                WC_BUTTONW,
+                L"Create DirectComposition Flow Host",
+                WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                12,
+                102,
                 250,
                 32,
                 windowHandle,
@@ -658,11 +1312,11 @@ namespace
             bothButton = ::CreateWindowExW(
                 0,
                 WC_BUTTONW,
-                L"Create Both Hosts",
+                L"Create All Hosts",
                 WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-                12,
-                104,
-                510,
+                272,
+                102,
+                250,
                 32,
                 windowHandle,
                 reinterpret_cast<HMENU>(static_cast<INT_PTR>(kPanelButtonBoth)),
@@ -674,6 +1328,7 @@ namespace
             {
                 ::SendMessageW(instructionLabel, WM_SETFONT, reinterpret_cast<WPARAM>(messageFont), TRUE);
                 ::SendMessageW(winRtButton, WM_SETFONT, reinterpret_cast<WPARAM>(messageFont), TRUE);
+                ::SendMessageW(winRtBackdropButton, WM_SETFONT, reinterpret_cast<WPARAM>(messageFont), TRUE);
                 ::SendMessageW(dcompButton, WM_SETFONT, reinterpret_cast<WPARAM>(messageFont), TRUE);
                 ::SendMessageW(bothButton, WM_SETFONT, reinterpret_cast<WPARAM>(messageFont), TRUE);
             }
@@ -688,11 +1343,15 @@ namespace
             case kPanelButtonWinRt:
                 CreateHostFromPanel(desktopinterop::DesktopHostBackend::WinRTComposition);
                 return 0;
+            case kPanelButtonWinRtBackdrop:
+                CreateHostFromPanel(desktopinterop::DesktopHostBackend::WinRTHostBackdrop);
+                return 0;
             case kPanelButtonDComp:
                 CreateHostFromPanel(desktopinterop::DesktopHostBackend::DirectComposition);
                 return 0;
             case kPanelButtonBoth:
                 CreateHostFromPanel(desktopinterop::DesktopHostBackend::WinRTComposition);
+                CreateHostFromPanel(desktopinterop::DesktopHostBackend::WinRTHostBackdrop);
                 CreateHostFromPanel(desktopinterop::DesktopHostBackend::DirectComposition);
                 return 0;
             default:
@@ -706,10 +1365,9 @@ namespace
             ::GetClientRect(windowHandle, &clientRect);
 
             const int width = clientRect.right - clientRect.left;
-            const int buttonWidth = (std::max)(160, (width - 36) / 2);
+            const int buttonWidth = (std::max)(160, (width - 38) / 2);
             const int rightButtonX = 18 + buttonWidth;
             const int rightButtonWidth = width - rightButtonX - 18;
-            const int combinedButtonWidth = width - 24 - 12;
 
             if (instructionLabel != nullptr)
             {
@@ -719,13 +1377,17 @@ namespace
             {
                 ::MoveWindow(winRtButton, 12, 60, buttonWidth, 32, TRUE);
             }
+            if (winRtBackdropButton != nullptr)
+            {
+                ::MoveWindow(winRtBackdropButton, rightButtonX, 60, rightButtonWidth, 32, TRUE);
+            }
             if (dcompButton != nullptr)
             {
-                ::MoveWindow(dcompButton, rightButtonX, 60, rightButtonWidth, 32, TRUE);
+                ::MoveWindow(dcompButton, 12, 102, buttonWidth, 32, TRUE);
             }
             if (bothButton != nullptr)
             {
-                ::MoveWindow(bothButton, 12, 104, combinedButtonWidth, 32, TRUE);
+                ::MoveWindow(bothButton, rightButtonX, 102, rightButtonWidth, 32, TRUE);
             }
         }
 
@@ -743,6 +1405,7 @@ namespace
         HWND windowHandle = nullptr;
         HWND instructionLabel = nullptr;
         HWND winRtButton = nullptr;
+        HWND winRtBackdropButton = nullptr;
         HWND dcompButton = nullptr;
         HWND bothButton = nullptr;
     };
