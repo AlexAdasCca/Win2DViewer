@@ -1,0 +1,17 @@
+//{{NO_DEPENDENCIES}}
+// Win32/ATL resource identifiers
+
+#pragma once
+
+#define IDS_APP_TITLE                  101
+#define IDD_ABOUTBOX                   102
+#define IDR_MAINFRAME                  128
+#define IDR_WIN2DVIEWERTYPE             130
+#define ID_VIEW_LAYER_EFFECT_OVER_SVG  32771
+#define ID_VIEW_LAYER_SVG_OVER_EFFECT  32772
+#define ID_VIEW_LAYER_SVG_ONLY         32773
+#define ID_VIEW_LAYER_EFFECT_ONLY      32774
+#define ID_VIEW_CONSOLE_DEBUG          32775
+#define ID_TEST_CREATE_WINRT_HOST      32776
+#define ID_TEST_OPEN_HOST_PANEL        32777
+

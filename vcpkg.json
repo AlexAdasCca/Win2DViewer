@@ -1,0 +1,8 @@
+{
+  "name": "win2dinmfc",
+  "version-string": "0.1.0",
+  "dependencies": [
+    "wil",
+    "wtl"
+  ]
+}

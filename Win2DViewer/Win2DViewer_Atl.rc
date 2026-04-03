@@ -1,0 +1,105 @@
+#include "resource.h"
+#include <atlres.h>
+#include <winres.h>
+#include "verrsrc.h"
+
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+
+IDR_MAINFRAME ICON "res\\Win2DViewer.ico"
+IDR_WIN2DVIEWERTYPE ICON "res\\SvgDocument.ico"
+IDR_MAINFRAME BITMAP "res\\Toolbar.bmp"
+
+IDR_MAINFRAME TOOLBAR 16, 15
+BEGIN
+    BUTTON      ID_FILE_NEW
+    BUTTON      ID_FILE_OPEN
+    SEPARATOR
+    BUTTON      ID_APP_ABOUT
+END
+
+IDR_MAINFRAME MENU
+BEGIN
+    POPUP "&File"
+    BEGIN
+        MENUITEM "&New",                        ID_FILE_NEW
+        MENUITEM "&Open...\tCtrl+O",            ID_FILE_OPEN
+        MENUITEM SEPARATOR
+        MENUITEM "E&xit",                       ID_APP_EXIT
+    END
+    POPUP "&View"
+    BEGIN
+        MENUITEM "Console &Debug",              ID_VIEW_CONSOLE_DEBUG
+        MENUITEM SEPARATOR
+        POPUP "&Layer"
+        BEGIN
+            MENUITEM "Effects Over SVG",            ID_VIEW_LAYER_EFFECT_OVER_SVG
+            MENUITEM "SVG Over Effects",            ID_VIEW_LAYER_SVG_OVER_EFFECT
+            MENUITEM SEPARATOR
+            MENUITEM "SVG Only",                    ID_VIEW_LAYER_SVG_ONLY
+            MENUITEM "Effects Only",                ID_VIEW_LAYER_EFFECT_ONLY
+        END
+    END
+    POPUP "&Test"
+    BEGIN
+        MENUITEM "Create Win32 Host (WinRT Composition)", ID_TEST_CREATE_WINRT_HOST
+        MENUITEM "Desktop Host Test Panel...",      ID_TEST_OPEN_HOST_PANEL
+    END
+    POPUP "&Help"
+    BEGIN
+        MENUITEM "&About Win2DViewer...",        ID_APP_ABOUT
+    END
+END
+
+IDR_MAINFRAME ACCELERATORS
+BEGIN
+    "N",            ID_FILE_NEW,            VIRTKEY, CONTROL
+    "O",            ID_FILE_OPEN,           VIRTKEY, CONTROL
+END
+
+IDD_ABOUTBOX DIALOGEX 0, 0, 170, 62
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "About Win2DViewer"
+FONT 9, "Segoe UI", 0, 0, 0x1
+BEGIN
+    ICON            IDR_MAINFRAME,IDC_STATIC,14,14,21,20
+    LTEXT           "Win2DViewer, WTL edition",IDC_STATIC,42,14,114,8,SS_NOPREFIX
+    LTEXT           "Win2D SVG Viewer",IDC_STATIC,42,28,114,8
+    DEFPUSHBUTTON   "OK",IDOK,113,41,50,14,WS_GROUP
+END
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 1,0,0,1
+ PRODUCTVERSION 1,0,0,1
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x40004L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "FileDescription", "Win2DViewer"
+            VALUE "FileVersion", "1.0.0.1"
+            VALUE "InternalName", "Win2DViewer.exe"
+            VALUE "OriginalFilename", "Win2DViewer.exe"
+            VALUE "ProductName", "Win2DViewer"
+            VALUE "ProductVersion", "1.0.0.1"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
+
+STRINGTABLE
+BEGIN
+    IDS_APP_TITLE           "Win2DViewer (Win2D SVG Viewer)"
+END
+
