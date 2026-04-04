@@ -169,11 +169,20 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="ConsoleWindowIntegration.h" />
+    <ClInclude Include="HookConfig.h" />
+    <ClInclude Include="HookLifecycle.h" />
+    <ClInclude Include="HookState.h" />
+    <ClInclude Include="MessageHookBridge.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="..\Win2DViewer\SystemMenuExtensions.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ConsoleWindowIntegration.cpp" />
     <ClCompile Include="dllmain.cpp" />
+    <ClCompile Include="HookLifecycle.cpp" />
+    <ClCompile Include="HookState.cpp" />
+    <ClCompile Include="MessageHookBridge.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>

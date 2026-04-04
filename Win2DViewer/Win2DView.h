@@ -3,6 +3,7 @@
 #include "timer.h"
 #include "MyScrollView.h"
 #include "SvgDocument.h"
+#include "ConsoleDebugMessages.h"
 #include "WinrtNsAliases.h"
 
 #include <d2d1svg.h>
@@ -15,8 +16,6 @@
 #include <winrt/Microsoft.Graphics.Canvas.UI.Composition.h>
 
 #include "devicelost.h"
-
-constexpr UINT kConsoleDebugStateSyncMsg = WM_APP + 0x58;
 
 class CWin2DView
     : public CWindowImpl<CWin2DView>

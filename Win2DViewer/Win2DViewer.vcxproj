@@ -299,6 +299,8 @@
     </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="ConsoleDebugLifecycle.h" />
+    <ClInclude Include="ConsoleDebugMessages.h" />
     <ClInclude Include="ConsoleMenuInjection.h" />
     <ClInclude Include="ConsoleTextWriter.h" />
     <ClInclude Include="DisplaySyncHelper.h" />
@@ -323,6 +325,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ConsoleDebugLifecycle.cpp" />
     <ClCompile Include="ConsoleMenuInjection.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>

@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 
 #include <sstream>
 #include <winternl.h>
@@ -12,6 +12,8 @@
 #define NT_SUCCESS(Status) (((NTSTATUS)(Status)) >= 0)
 #endif
 
+#define WIN2DVIEWER_TEMP_DISABLE_PROCESS_CONSOLE_HOST_FASTPATH 0
+
 namespace
 {
     using NtGetNextProcessFn = NTSTATUS(NTAPI*)(HANDLE, ACCESS_MASK, ULONG, ULONG, PHANDLE);
@@ -20,7 +22,16 @@ namespace
     constexpr ACCESS_MASK kInjectionAccess =
         PROCESS_CREATE_THREAD | PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_OPERATION | PROCESS_VM_WRITE | PROCESS_VM_READ;
     constexpr ACCESS_MASK kEnumerationAccess = PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ;
+    // NtGetNextProcess Flags value:
+    // PROCESS_GET_NEXT_FLAGS_PREVIOUS_PROCESS = 0x1
+    // Reference (community): https://ntdoc.m417z.com/ntgetnextprocess
     constexpr ULONG kProcessGetNextFlagsPreviousProcess = 0x1;
+
+    // NtQueryInformationProcess(ProcessInformationClass=49) for console host lookup.
+    // This value is commonly named ProcessConsoleHostProcess in community headers.
+    // References:
+    // - https://ntdoc.m417z.com/processinfoclass
+    // - https://stackoverflow.com/questions/53679384/ntqueryinformationprocess-processconsolehostprocess-returns-wrong-process-id
     constexpr PROCESSINFOCLASS kProcessConsoleHostProcessClass = static_cast<PROCESSINFOCLASS>(49);
     constexpr ULONG_PTR kProcessConsoleHostPidMask = ~static_cast<ULONG_PTR>(3);
 
@@ -320,6 +331,11 @@ namespace
     HANDLE TryFindConsoleHostProcessViaProcessInfoClass(NtQueryInformationProcessFn ntQueryInformationProcess)
     {
         ULONG_PTR rawConsoleHost = 0;
+        // NtQueryInformationProcess parameters:
+        // - ProcessHandle: current process
+        // - ProcessInformationClass: ProcessConsoleHostProcess(49)
+        // - ProcessInformation: receives ULONG_PTR payload (PID + low-bit flags)
+        // - ProcessInformationLength: sizeof(ULONG_PTR)
         const NTSTATUS status = ntQueryInformationProcess(
             ::GetCurrentProcess(),
             kProcessConsoleHostProcessClass,
@@ -394,6 +410,7 @@ namespace
             return nullptr;
         }
 
+#if !WIN2DVIEWER_TEMP_DISABLE_PROCESS_CONSOLE_HOST_FASTPATH
         if (HANDLE directHostProcess = TryFindConsoleHostProcessViaProcessInfoClass(ntQueryInformationProcess))
         {
             std::wstringstream ss;
@@ -402,11 +419,20 @@ namespace
             LogLine(ss.str());
             return directHostProcess;
         }
+#else
+        LogLine(L"[ConsoleMenuInjection] ProcessConsoleHostProcess fast path is temporarily disabled by macro.");
+#endif
 
         HANDLE currentHandle = nullptr;
         while (true)
         {
             HANDLE nextHandle = nullptr;
+            // NtGetNextProcess parameters:
+            // - ProcessHandle: iterator cursor (NULL for first item)
+            // - DesiredAccess: query-only in enumeration phase
+            // - HandleAttributes: 0
+            // - Flags: PREVIOUS_PROCESS for reverse traversal
+            // - NewProcessHandle: receives next cursor
             const NTSTATUS nextStatus = ntGetNextProcess(
                 currentHandle,
                 kEnumerationAccess,
