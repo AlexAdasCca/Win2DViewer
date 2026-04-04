@@ -38,8 +38,8 @@ namespace ConsoleMenuHook
 
     void LogLine(std::wstring const& line)
     {
-        diagnosticconsole::ConfigureUnicodeConsole();
-        diagnosticconsole::WriteLine(line);
+        DiagnosticConsole::ConfigureUnicodeConsole();
+        DiagnosticConsole::WriteLine(line);
     }
 
     DWORD QueryParentProcessId()
@@ -95,11 +95,11 @@ namespace ConsoleMenuHook
             return;
         }
 
-        const std::wstring eventName = consolehookipc::BuildConsoleCloseNotifyEventName(ownerPid);
+        const std::wstring eventName = ConsoleHookIpc::BuildConsoleCloseNotifyEventName(ownerPid);
         HANDLE notifyEvent = ::OpenEventW(EVENT_MODIFY_STATE, FALSE, eventName.c_str());
         if (notifyEvent == nullptr)
         {
-            diagnosticconsole::LineBuilder line;
+            DiagnosticConsole::LineBuilder line;
             line << L"[ConsoleMenuHook] Console close notify open failed. source="
                  << source
                  << L" ownerPid=" << ownerPid
@@ -110,7 +110,7 @@ namespace ConsoleMenuHook
 
         if (!::SetEvent(notifyEvent))
         {
-            diagnosticconsole::LineBuilder line;
+            DiagnosticConsole::LineBuilder line;
             line << L"[ConsoleMenuHook] Console close notify SetEvent failed. source="
                  << source
                  << L" ownerPid=" << ownerPid
@@ -121,7 +121,7 @@ namespace ConsoleMenuHook
         }
 
         ::CloseHandle(notifyEvent);
-        diagnosticconsole::LineBuilder line;
+        DiagnosticConsole::LineBuilder line;
         line << L"[ConsoleMenuHook] Console close notify sent. source="
              << source
              << L" ownerPid=" << ownerPid;
@@ -150,7 +150,7 @@ namespace ConsoleMenuHook
         if (gRuntimeState.ConsoleWindow.compare_exchange_strong(expected, windowHandle))
         {
             gRuntimeState.ConsoleCloseNotified.store(false);
-            diagnosticconsole::LineBuilder line;
+            DiagnosticConsole::LineBuilder line;
             line << L"[ConsoleMenuHook] Captured console window hwnd=0x"
                  << std::hex << reinterpret_cast<ULONG_PTR>(windowHandle);
             LogLine(line.str());

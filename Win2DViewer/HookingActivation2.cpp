@@ -3,7 +3,7 @@
 #include <winstring.h>
 #include "WinrtNsAliases.h"
 
-namespace ns
+namespace HookingActivationNs
 {
     namespace wr = wna::rt;
     namespace wf = wna::wd::fnd;
@@ -66,7 +66,7 @@ extern "C"  HRESULT WINRT_RoGetActivationFactory2(void* classIdRaw, GUID const& 
         return hr;
     }
 
-    ns::wr::com_ptr<ns::wf::IActivationFactory> activationFactory;
+    HookingActivationNs::wr::com_ptr<HookingActivationNs::wf::IActivationFactory> activationFactory;
     HRESULT const hr = call(classId, activationFactory.put_void());
 
     if (FAILED(hr))
@@ -74,7 +74,7 @@ extern "C"  HRESULT WINRT_RoGetActivationFactory2(void* classIdRaw, GUID const& 
         WINRT_VERIFY(FreeLibrary(library));
         return hr;
     }
-    GUID activationFactoryIid = ns::wr::guid_of<ns::wf::IActivationFactory>();
+    GUID activationFactoryIid = HookingActivationNs::wr::guid_of<HookingActivationNs::wf::IActivationFactory>();
     if (iid != activationFactoryIid)
     {
         return activationFactory->QueryInterface(iid, factory);

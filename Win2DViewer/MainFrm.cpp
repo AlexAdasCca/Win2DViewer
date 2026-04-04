@@ -275,7 +275,7 @@ LRESULT CMainFrame::OnViewConsoleDebug(WORD, WORD, HWND, BOOL&)
 LRESULT CMainFrame::OnTestCreateWinRtHost(WORD, WORD, HWND, BOOL&)
 {
     std::wstring errorMessage;
-    if (!desktopinterop::CreateDesktopHostTestWindow(desktopinterop::DesktopHostBackend::WinRTComposition, &errorMessage))
+    if (!DesktopInterop::CreateDesktopHostTestWindow(DesktopInterop::DesktopHostBackend::WinRTComposition, &errorMessage))
     {
         const std::wstring message = L"Failed to create WinRT composition host window.\n" + errorMessage;
         AtlMessageBox(m_hWnd, message.c_str(), IDS_APP_TITLE, MB_OK | MB_ICONERROR);
@@ -286,7 +286,7 @@ LRESULT CMainFrame::OnTestCreateWinRtHost(WORD, WORD, HWND, BOOL&)
 
 LRESULT CMainFrame::OnTestOpenHostPanel(WORD, WORD, HWND, BOOL&)
 {
-    desktopinterop::ShowDesktopHostTestPanel(m_hWnd);
+    DesktopInterop::ShowDesktopHostTestPanel(m_hWnd);
     return 0;
 }
 
@@ -332,10 +332,10 @@ void CMainFrame::InitializeSystemMenu()
     {
         std::wstring errorMessage;
 
-        systemmenu::MenuItemSpec topMostItem{};
-        topMostItem.id = systemmenu::kCommandWindowTopMost;
+        SystemMenu::MenuItemSpec topMostItem{};
+        topMostItem.id = SystemMenu::kCommandWindowTopMost;
         topMostItem.text = L"\u7A97\u53E3\u7F6E\u9876";
-        topMostItem.shortcut = systemmenu::ShortcutBinding{};
+        topMostItem.shortcut = SystemMenu::ShortcutBinding{};
         topMostItem.shortcut->virtualKey = 'T';
         topMostItem.shortcut->ctrl = true;
         topMostItem.shortcut->alt = true;
@@ -354,13 +354,13 @@ void CMainFrame::InitializeSystemMenu()
         topMostItem.isChecked = [this]() { return isWindowTopMost; };
         topMostItem.isEnabled = []() { return true; };
 
-        systemmenu::MenuItemSpec separator{};
+        SystemMenu::MenuItemSpec separator{};
         separator.separator = true;
 
-        systemmenu::MenuItemSpec aboutItem{};
-        aboutItem.id = systemmenu::kCommandAbout;
+        SystemMenu::MenuItemSpec aboutItem{};
+        aboutItem.id = SystemMenu::kCommandAbout;
         aboutItem.text = L"\u6253\u5F00\u5173\u4E8E";
-        aboutItem.shortcut = systemmenu::ShortcutBinding{};
+        aboutItem.shortcut = SystemMenu::ShortcutBinding{};
         aboutItem.shortcut->virtualKey = VK_F1;
         aboutItem.shortcut->alt = true;
         aboutItem.onInvoke = [](HWND windowHandle) { ShowAboutDialog(windowHandle); };

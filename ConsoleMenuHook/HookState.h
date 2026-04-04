@@ -16,7 +16,7 @@ namespace ConsoleMenuHook
         std::atomic<HWND> ConsoleWindow{ nullptr };
         bool ConsoleWindowTopMost = false;
         HANDLE InitThread = nullptr;
-        systemmenu::MenuHost ConsoleMenuHost{ L"Conhost.SystemMenu" };
+        SystemMenu::MenuHost ConsoleMenuHost{ L"Conhost.SystemMenu" };
         std::atomic_bool ConsoleMenuInstalled = false;
         std::atomic_bool ConsoleWindowSubclassed = false;
         std::atomic_bool ConsoleIntegrateInProgress = false;

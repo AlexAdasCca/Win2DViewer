@@ -12,7 +12,7 @@
 #include <utility>
 #include <vector>
 
-namespace systemmenu
+namespace SystemMenu
 {
     constexpr UINT_PTR kCommandWindowTopMost = 0x1F10;
     constexpr UINT_PTR kCommandAbout = 0x1F20;
@@ -154,7 +154,7 @@ namespace systemmenu
         std::function<bool()> isEnabled;
     };
 
-    namespace detail
+    namespace Internal
     {
         struct RegisteredShortcut
         {
@@ -480,7 +480,7 @@ namespace systemmenu
 
         bool RegisterShortcuts(std::wstring* errorMessage)
         {
-            std::scoped_lock lock(detail::gShortcutRegistryMutex);
+            std::scoped_lock lock(Internal::gShortcutRegistryMutex);
             registeredShortcutKeys_.clear();
 
             for (MenuItemSpec const& item : items_)
@@ -491,8 +491,8 @@ namespace systemmenu
                 }
 
                 const std::wstring key = item.shortcut->ToNormalizedKey();
-                auto it = detail::gShortcutRegistry.find(key);
-                if (it != detail::gShortcutRegistry.end() && it->second.owner != scopeName_)
+                auto it = Internal::gShortcutRegistry.find(key);
+                if (it != Internal::gShortcutRegistry.end() && it->second.owner != scopeName_)
                 {
                     if (errorMessage != nullptr)
                     {
@@ -500,13 +500,13 @@ namespace systemmenu
                     }
                     for (std::wstring const& registeredKey : registeredShortcutKeys_)
                     {
-                        detail::gShortcutRegistry.erase(registeredKey);
+                        Internal::gShortcutRegistry.erase(registeredKey);
                     }
                     registeredShortcutKeys_.clear();
                     return false;
                 }
 
-                detail::gShortcutRegistry[key] = detail::RegisteredShortcut{ scopeName_, item.id, item.text };
+                Internal::gShortcutRegistry[key] = Internal::RegisteredShortcut{ scopeName_, item.id, item.text };
                 registeredShortcutKeys_.push_back(key);
             }
 
@@ -515,13 +515,13 @@ namespace systemmenu
 
         void UnregisterShortcuts()
         {
-            std::scoped_lock lock(detail::gShortcutRegistryMutex);
+            std::scoped_lock lock(Internal::gShortcutRegistryMutex);
             for (std::wstring const& key : registeredShortcutKeys_)
             {
-                auto it = detail::gShortcutRegistry.find(key);
-                if (it != detail::gShortcutRegistry.end() && it->second.owner == scopeName_)
+                auto it = Internal::gShortcutRegistry.find(key);
+                if (it != Internal::gShortcutRegistry.end() && it->second.owner == scopeName_)
                 {
-                    detail::gShortcutRegistry.erase(it);
+                    Internal::gShortcutRegistry.erase(it);
                 }
             }
             registeredShortcutKeys_.clear();

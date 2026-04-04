@@ -10,15 +10,15 @@
 
 CAppModule appModule;
 
-namespace ns
+namespace Win2DViewerAppNs
 {
     namespace wr = wna::rt;
     namespace wus = wna::wd::sys;
 }
 
-ns::wus::DispatcherQueueController CreateDispatcherQueueController()
+Win2DViewerAppNs::wus::DispatcherQueueController CreateDispatcherQueueController()
 {
-    return desktopinterop::CreateDispatcherQueueControllerForCurrentThread();
+    return DesktopInterop::CreateDispatcherQueueControllerForCurrentThread();
 }
 
 std::wstring LoadAppString(UINT stringId)
@@ -58,7 +58,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow)
 {
     try
     {
-        ns::wr::init_apartment(ns::wr::apartment_type::single_threaded);
+        Win2DViewerAppNs::wr::init_apartment(Win2DViewerAppNs::wr::apartment_type::single_threaded);
         auto dispatcherController = CreateDispatcherQueueController();
         AtlInitCommonControls(ICC_WIN95_CLASSES);
 
@@ -105,7 +105,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow)
         appModule.Term();
         return exitCode;
     }
-    catch (ns::wr::hresult_error const& ex)
+    catch (Win2DViewerAppNs::wr::hresult_error const& ex)
     {
         std::wstring message = L"Application startup failed:\n";
         message += ex.message();

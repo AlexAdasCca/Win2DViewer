@@ -94,11 +94,11 @@ namespace
     {
         if (gDiagnosticsEnabled && ::GetConsoleWindow() != nullptr)
         {
-            diagnosticconsole::WriteLine(line);
+            DiagnosticConsole::WriteLine(line);
             return;
         }
 
-        diagnosticconsole::WriteLine(line);
+        DiagnosticConsole::WriteLine(line);
     }
 
     std::wstring FormatNtStatus(NTSTATUS status)
@@ -307,7 +307,7 @@ namespace
             LogLine(L"[ConsoleMenuInjection] Failed to read remote PEB strings.");
         }
 
-        diagnosticconsole::LineBuilder line;
+        DiagnosticConsole::LineBuilder line;
         line << L"[ConsoleMenuInjection] Candidate pid=" << ::GetProcessId(processHandle)
              << L" parent=" << static_cast<DWORD>(info.InheritedFromUniqueProcessId)
              << L" image=" << (!imagePath.empty() ? imagePath : queryImagePath)
@@ -577,7 +577,7 @@ namespace
     }
 }
 
-bool consolemenu::EnsureConsoleHookInjected()
+bool ConsoleMenu::EnsureConsoleHookInjected()
 {
     const std::wstring dllPath = GetConsoleHookDllPath();
     if (::GetFileAttributesW(dllPath.c_str()) == INVALID_FILE_ATTRIBUTES)
@@ -624,7 +624,7 @@ namespace
 {
     DWORD WINAPI ConsoleHookInjectionThreadProc(LPVOID)
     {
-        const bool injected = consolemenu::EnsureConsoleHookInjected();
+        const bool injected = ConsoleMenu::EnsureConsoleHookInjected();
         if (!injected)
         {
             LogLine(L"[ConsoleMenuInjection] Async injection thread finished without success.");
@@ -634,7 +634,7 @@ namespace
     }
 }
 
-void consolemenu::BeginConsoleHookInjectionAsync()
+void ConsoleMenu::BeginConsoleHookInjectionAsync()
 {
     bool expected = false;
     if (!gInjectionInProgress.compare_exchange_strong(expected, true))
@@ -658,12 +658,12 @@ void consolemenu::BeginConsoleHookInjectionAsync()
     }
 }
 
-void consolemenu::SetInjectionDiagnosticsEnabled(bool enabled) noexcept
+void ConsoleMenu::SetInjectionDiagnosticsEnabled(bool enabled) noexcept
 {
     gDiagnosticsEnabled = enabled;
 }
 
-void consolemenu::ResetConsoleHookState() noexcept
+void ConsoleMenu::ResetConsoleHookState() noexcept
 {
     gInjectedConsoleHostProcessId = 0;
     if (gInjectionThread != nullptr)

@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace consolehookipc
+namespace ConsoleHookIpc
 {
     inline std::wstring BuildConsoleCloseNotifyEventName(DWORD ownerProcessId)
     {

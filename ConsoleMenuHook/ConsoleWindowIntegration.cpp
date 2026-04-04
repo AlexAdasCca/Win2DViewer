@@ -65,7 +65,7 @@ namespace ConsoleMenuHook
 
             if (context->Verbose)
             {
-                diagnosticconsole::LineBuilder line;
+                DiagnosticConsole::LineBuilder line;
                 line << L"[ConsoleMenuHook] Enum candidate source=" << context->Source
                      << L" hwnd=0x" << std::hex << reinterpret_cast<ULONG_PTR>(windowHandle)
                      << L" pid=" << std::dec << processId
@@ -94,13 +94,13 @@ namespace ConsoleMenuHook
                 return true;
             }
 
-            systemmenu::MenuItemSpec separator{};
+            SystemMenu::MenuItemSpec separator{};
             separator.separator = true;
 
-            systemmenu::MenuItemSpec topMostItem{};
-            topMostItem.id = systemmenu::kCommandWindowTopMost;
+            SystemMenu::MenuItemSpec topMostItem{};
+            topMostItem.id = SystemMenu::kCommandWindowTopMost;
             topMostItem.text = L"窗口置顶";
-            topMostItem.shortcut = systemmenu::ShortcutBinding{};
+            topMostItem.shortcut = SystemMenu::ShortcutBinding{};
             topMostItem.shortcut->virtualKey = 'T';
             topMostItem.shortcut->ctrl = true;
             topMostItem.shortcut->alt = true;
@@ -120,10 +120,10 @@ namespace ConsoleMenuHook
             topMostItem.isChecked = []() { return GetRuntimeState().ConsoleWindowTopMost; };
             topMostItem.isEnabled = []() { return true; };
 
-            systemmenu::MenuItemSpec aboutItem{};
-            aboutItem.id = systemmenu::kCommandAbout;
+            SystemMenu::MenuItemSpec aboutItem{};
+            aboutItem.id = SystemMenu::kCommandAbout;
             aboutItem.text = L"打开关于";
-            aboutItem.shortcut = systemmenu::ShortcutBinding{};
+            aboutItem.shortcut = SystemMenu::ShortcutBinding{};
             aboutItem.shortcut->virtualKey = VK_F1;
             aboutItem.shortcut->alt = true;
             aboutItem.onInvoke = [](HWND ownerWindow) { ShowAboutDialog(ownerWindow); };
@@ -171,7 +171,7 @@ namespace ConsoleMenuHook
                 }
                 if (runtimeState.ConsoleMenuHost.HandleCommand(windowHandle, commandId))
                 {
-                    diagnosticconsole::LineBuilder line;
+                    DiagnosticConsole::LineBuilder line;
                     line << L"[ConsoleMenuHook] Handled longptr WM_SYSCOMMAND id=0x" << std::hex << commandId;
                     LogLine(line.str());
                     return 0;
@@ -224,7 +224,7 @@ namespace ConsoleMenuHook
             HMENU systemMenu = ::GetSystemMenu(windowHandle, FALSE);
             if (systemMenu == nullptr)
             {
-                diagnosticconsole::LineBuilder line;
+                DiagnosticConsole::LineBuilder line;
                 line << L"[ConsoleMenuHook] GetSystemMenu failed. gle=" << ::GetLastError();
                 LogLine(line.str());
                 return;
@@ -237,9 +237,9 @@ namespace ConsoleMenuHook
 
             auto& runtimeState = GetRuntimeState();
             const bool topMostExists =
-                ::GetMenuState(systemMenu, static_cast<UINT>(systemmenu::kCommandWindowTopMost), MF_BYCOMMAND) != static_cast<UINT>(-1);
+                ::GetMenuState(systemMenu, static_cast<UINT>(SystemMenu::kCommandWindowTopMost), MF_BYCOMMAND) != static_cast<UINT>(-1);
             const bool aboutExists =
-                ::GetMenuState(systemMenu, static_cast<UINT>(systemmenu::kCommandAbout), MF_BYCOMMAND) != static_cast<UINT>(-1);
+                ::GetMenuState(systemMenu, static_cast<UINT>(SystemMenu::kCommandAbout), MF_BYCOMMAND) != static_cast<UINT>(-1);
 
             if (topMostExists || aboutExists)
             {
@@ -257,7 +257,7 @@ namespace ConsoleMenuHook
             }
 
             ::DrawMenuBar(windowHandle);
-            diagnosticconsole::LineBuilder line;
+            DiagnosticConsole::LineBuilder line;
             line << L"[ConsoleMenuHook] Installed system menu items. count=" << ::GetMenuItemCount(systemMenu);
             LogLine(line.str());
             runtimeState.ConsoleMenuInstalled.store(true);
@@ -273,7 +273,7 @@ namespace ConsoleMenuHook
         context.Source = source != nullptr ? source : L"";
         (void)::EnumWindows(&FindConsoleWindowEnumProc, reinterpret_cast<LPARAM>(&context));
 
-        diagnosticconsole::LineBuilder summary;
+        DiagnosticConsole::LineBuilder summary;
         summary << L"[ConsoleMenuHook] Enum summary source=" << context.Source
                 << L" found=" << (context.FoundWindow != nullptr ? 1 : 0)
                 << L" consoleClassCount=" << context.ConsoleClassWindows
@@ -337,7 +337,7 @@ namespace ConsoleMenuHook
             reinterpret_cast<LONG_PTR>(&ConsoleWindowLongPtrProc));
         if (previousProcValue == 0 && ::GetLastError() != 0)
         {
-            diagnosticconsole::LineBuilder line;
+            DiagnosticConsole::LineBuilder line;
             line << L"[ConsoleMenuHook] SetWindowLongPtrW(GWLP_WNDPROC) failed. gle=" << ::GetLastError();
             LogLine(line.str());
             return false;
@@ -379,7 +379,7 @@ namespace ConsoleMenuHook
 
         if (integrated)
         {
-            diagnosticconsole::LineBuilder line;
+            DiagnosticConsole::LineBuilder line;
             line << L"[ConsoleMenuHook] Integrated console window via " << source;
             LogLine(line.str());
         }

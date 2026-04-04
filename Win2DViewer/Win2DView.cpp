@@ -28,7 +28,7 @@
 #include "ConsoleDebugLifecycle.h"
 #include "DisplaySyncHelper.h"
 
-namespace ns
+namespace Win2DViewNs
 {
     namespace wr = wna::rt;
     namespace wf = wna::wd::fnd;
@@ -58,9 +58,9 @@ namespace
     DisplaySyncHelper displaySyncHelper;
     bool gDampScrolling = true;
 
-    ns::wfn::float3x2 IdentityTransform()
+    Win2DViewNs::wfn::float3x2 IdentityTransform()
     {
-        return ns::wfn::float3x2{ 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f };
+        return Win2DViewNs::wfn::float3x2{ 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f };
     }
 
     int RoundToInt(double value)
@@ -314,7 +314,7 @@ namespace
         return text;
     }
 
-    ns::wui::Color ParseSvgColor(std::wstring const& value, ns::wui::Color fallback)
+    Win2DViewNs::wui::Color ParseSvgColor(std::wstring const& value, Win2DViewNs::wui::Color fallback)
     {
         std::wstring color = Trim(value);
         if (color.empty())
@@ -332,7 +332,7 @@ namespace
                     if (c >= L'A' && c <= L'F') return static_cast<uint8_t>(10 + c - L'A');
                     return 0;
                 };
-                return ns::wui::Color{
+                return Win2DViewNs::wui::Color{
                     255,
                     static_cast<uint8_t>(hex(color[1]) * 17),
                     static_cast<uint8_t>(hex(color[2]) * 17),
@@ -345,17 +345,17 @@ namespace
                 {
                     return static_cast<uint8_t>(std::wcstol(color.substr(i, 2).c_str(), nullptr, 16));
                 };
-                return ns::wui::Color{ 255, toByte(1), toByte(3), toByte(5) };
+                return Win2DViewNs::wui::Color{ 255, toByte(1), toByte(3), toByte(5) };
             }
         }
 
         if (color == L"black")
         {
-            return ns::wui::Color{ 255, 0, 0, 0 };
+            return Win2DViewNs::wui::Color{ 255, 0, 0, 0 };
         }
         if (color == L"white")
         {
-            return ns::wui::Color{ 255, 255, 255, 255 };
+            return Win2DViewNs::wui::Color{ 255, 255, 255, 255 };
         }
         return fallback;
     }
@@ -494,22 +494,22 @@ namespace
             {
                 if (taIt->second == L"middle")
                 {
-                    item.textAlignment = ns::mgct::CanvasHorizontalAlignment::Center;
+                    item.textAlignment = Win2DViewNs::mgct::CanvasHorizontalAlignment::Center;
                 }
                 else if (taIt->second == L"end")
                 {
-                    item.textAlignment = ns::mgct::CanvasHorizontalAlignment::Right;
+                    item.textAlignment = Win2DViewNs::mgct::CanvasHorizontalAlignment::Right;
                 }
             }
             if (auto taIt = mergedStyle.find(L"text-anchor"); taIt != mergedStyle.end())
             {
                 if (taIt->second == L"middle")
                 {
-                    item.textAlignment = ns::mgct::CanvasHorizontalAlignment::Center;
+                    item.textAlignment = Win2DViewNs::mgct::CanvasHorizontalAlignment::Center;
                 }
                 else if (taIt->second == L"end")
                 {
-                    item.textAlignment = ns::mgct::CanvasHorizontalAlignment::Right;
+                    item.textAlignment = Win2DViewNs::mgct::CanvasHorizontalAlignment::Right;
                 }
             }
 
@@ -546,18 +546,18 @@ namespace
         return std::min(width / kScaleFactor, kMaxFontSize);
     }
 
-    ns::wr::com_ptr<::IDXGIDevice> GetDXGIDevice(ns::mgc::CanvasDevice& device)
+    Win2DViewNs::wr::com_ptr<::IDXGIDevice> GetDXGIDevice(Win2DViewNs::mgc::CanvasDevice& device)
     {
-        ns::wr::com_ptr<ABI::Microsoft::Graphics::Canvas::ICanvasResourceWrapperNative> nativeDeviceWrapper =
+        Win2DViewNs::wr::com_ptr<ABI::Microsoft::Graphics::Canvas::ICanvasResourceWrapperNative> nativeDeviceWrapper =
             device.as<ABI::Microsoft::Graphics::Canvas::ICanvasResourceWrapperNative>();
 
-        ns::wr::com_ptr<ID2D1Device2> d2dDevice{ nullptr };
-        ns::wr::check_hresult(nativeDeviceWrapper->GetNativeResource(nullptr, 0.0f, ns::wr::guid_of<ID2D1Device2>(), d2dDevice.put_void()));
+        Win2DViewNs::wr::com_ptr<ID2D1Device2> d2dDevice{ nullptr };
+        Win2DViewNs::wr::check_hresult(nativeDeviceWrapper->GetNativeResource(nullptr, 0.0f, Win2DViewNs::wr::guid_of<ID2D1Device2>(), d2dDevice.put_void()));
 
         IDXGIDevice* dxgiDeviceRaw = nullptr;
-        ns::wr::check_hresult(d2dDevice->GetDxgiDevice(&dxgiDeviceRaw));
+        Win2DViewNs::wr::check_hresult(d2dDevice->GetDxgiDevice(&dxgiDeviceRaw));
 
-        ns::wr::com_ptr<::IDXGIDevice> dxgiDevice;
+        Win2DViewNs::wr::com_ptr<::IDXGIDevice> dxgiDevice;
         dxgiDevice.attach(dxgiDeviceRaw);
         return dxgiDevice;
     }
@@ -684,7 +684,7 @@ bool CWin2DView::ShouldAnimateEffects() const noexcept
     return renderLayerMode != RenderLayerMode::SvgOnly;
 }
 
-void CWin2DView::DrawSvgTextOverlay(ns::mgc::CanvasDrawingSession const& session, ns::wfn::float3x2 const& transform)
+void CWin2DView::DrawSvgTextOverlay(Win2DViewNs::mgc::CanvasDrawingSession const& session, Win2DViewNs::wfn::float3x2 const& transform)
 {
     if (svgTextOverlays.empty())
     {
@@ -698,7 +698,7 @@ void CWin2DView::DrawSvgTextOverlay(ns::mgc::CanvasDrawingSession const& session
     }
 
     session.Transform(transform);
-    auto resourceCreator = session.as<ns::mgc::ICanvasResourceCreator>();
+    auto resourceCreator = session.as<Win2DViewNs::mgc::ICanvasResourceCreator>();
     int drawnCount = 0;
     int failedCount = 0;
 
@@ -708,34 +708,34 @@ void CWin2DView::DrawSvgTextOverlay(ns::mgc::CanvasDrawingSession const& session
         {
             try
             {
-                ns::mgct::CanvasTextFormat textFormat;
-                textFormat.FontFamily(ns::wr::hstring(fontFamily));
+                Win2DViewNs::mgct::CanvasTextFormat textFormat;
+                textFormat.FontFamily(Win2DViewNs::wr::hstring(fontFamily));
                 textFormat.FontSize(item.fontSize);
-                textFormat.HorizontalAlignment(ns::mgct::CanvasHorizontalAlignment::Left);
+                textFormat.HorizontalAlignment(Win2DViewNs::mgct::CanvasHorizontalAlignment::Left);
                 if (item.bold)
                 {
-                    textFormat.FontWeight(ns::wut::FontWeights::Bold());
+                    textFormat.FontWeight(Win2DViewNs::wut::FontWeights::Bold());
                 }
 
                 constexpr float kMaxLayout = 10000.0f;
-                ns::mgct::CanvasTextLayout textLayout(resourceCreator, ns::wr::hstring(item.text), textFormat, kMaxLayout, kMaxLayout);
+                Win2DViewNs::mgct::CanvasTextLayout textLayout(resourceCreator, Win2DViewNs::wr::hstring(item.text), textFormat, kMaxLayout, kMaxLayout);
                 auto bounds = textLayout.LayoutBounds();
 
                 float drawX = item.x;
-                if (item.textAlignment == ns::mgct::CanvasHorizontalAlignment::Center)
+                if (item.textAlignment == Win2DViewNs::mgct::CanvasHorizontalAlignment::Center)
                 {
                     drawX -= bounds.Width / 2.0f;
                 }
-                else if (item.textAlignment == ns::mgct::CanvasHorizontalAlignment::Right)
+                else if (item.textAlignment == Win2DViewNs::mgct::CanvasHorizontalAlignment::Right)
                 {
                     drawX -= bounds.Width;
                 }
 
                 const float drawY = item.y - (bounds.Y + bounds.Height);
-                session.DrawText(ns::wr::hstring(item.text), ns::wfn::float2(drawX, drawY), item.color, textFormat);
+                session.DrawText(Win2DViewNs::wr::hstring(item.text), Win2DViewNs::wfn::float2(drawX, drawY), item.color, textFormat);
                 return true;
             }
-            catch (ns::wr::hresult_error const&)
+            catch (Win2DViewNs::wr::hresult_error const&)
             {
                 return false;
             }
@@ -779,17 +779,17 @@ void CWin2DView::DrawSvgTextOverlay(ns::mgc::CanvasDrawingSession const& session
     }
 }
 
-ns::wud::DesktopWindowTarget CWin2DView::CreateDesktopWindowTarget(ns::wuc::Compositor const& compositor, HWND window)
+Win2DViewNs::wud::DesktopWindowTarget CWin2DView::CreateDesktopWindowTarget(Win2DViewNs::wuc::Compositor const& compositor, HWND window)
 {
     namespace abi = ABI::Windows::UI::Composition::Desktop;
 
     auto interop = compositor.as<abi::ICompositorDesktopInterop>();
-    ns::wud::DesktopWindowTarget target{ nullptr };
-    ns::wr::check_hresult(interop->CreateDesktopWindowTarget(window, true, reinterpret_cast<abi::IDesktopWindowTarget**>(ns::wr::put_abi(target))));
+    Win2DViewNs::wud::DesktopWindowTarget target{ nullptr };
+    Win2DViewNs::wr::check_hresult(interop->CreateDesktopWindowTarget(window, true, reinterpret_cast<abi::IDesktopWindowTarget**>(Win2DViewNs::wr::put_abi(target))));
     return target;
 }
 
-void CWin2DView::PrepareVisuals(ns::wuc::Compositor const& compositor)
+void CWin2DView::PrepareVisuals(Win2DViewNs::wuc::Compositor const& compositor)
 {
     target = CreateDesktopWindowTarget(compositor, m_hWnd);
 
@@ -809,16 +809,16 @@ void CWin2DView::OnDirect3DDeviceLost(DeviceLostHelper const*, DeviceLostEventAr
     inDeviceLost = true;
     renderTimer.stop();
 
-    auto canvasDevice = ns::mgc::CanvasDevice::GetSharedDevice();
-    ns::wr::com_ptr<ABI::Windows::UI::Composition::ICompositionGraphicsDeviceInterop> graphicsDeviceInterop{
+    auto canvasDevice = Win2DViewNs::mgc::CanvasDevice::GetSharedDevice();
+    Win2DViewNs::wr::com_ptr<ABI::Windows::UI::Composition::ICompositionGraphicsDeviceInterop> graphicsDeviceInterop{
         graphicsDevice.as<ABI::Windows::UI::Composition::ICompositionGraphicsDeviceInterop>()
     };
 
-    ns::wr::com_ptr<ABI::Microsoft::Graphics::Canvas::ICanvasResourceWrapperNative> nativeDeviceWrapper =
+    Win2DViewNs::wr::com_ptr<ABI::Microsoft::Graphics::Canvas::ICanvasResourceWrapperNative> nativeDeviceWrapper =
         canvasDevice.as<ABI::Microsoft::Graphics::Canvas::ICanvasResourceWrapperNative>();
-    ns::wr::com_ptr<ID2D1Device2> d2dDevice{ nullptr };
-    ns::wr::check_hresult(nativeDeviceWrapper->GetNativeResource(nullptr, 0.0f, ns::wr::guid_of<ID2D1Device2>(), d2dDevice.put_void()));
-    ns::wr::check_hresult(graphicsDeviceInterop->SetRenderingDevice(d2dDevice.get()));
+    Win2DViewNs::wr::com_ptr<ID2D1Device2> d2dDevice{ nullptr };
+    Win2DViewNs::wr::check_hresult(nativeDeviceWrapper->GetNativeResource(nullptr, 0.0f, Win2DViewNs::wr::guid_of<ID2D1Device2>(), d2dDevice.put_void()));
+    Win2DViewNs::wr::check_hresult(graphicsDeviceInterop->SetRenderingDevice(d2dDevice.get()));
 
     drawingSurface = nullptr;
     sceneBitmap = nullptr;
@@ -833,7 +833,7 @@ void CWin2DView::OnDirect3DDeviceLost(DeviceLostHelper const*, DeviceLostEventAr
     ScenarioWin2D(compositor, root, currentDpi, width, height);
 }
 
-void CWin2DView::ScenarioWin2D(ns::wuc::Compositor const& compositor, ns::wuc::ContainerVisual const& root, UINT dpi, int cx, int cy)
+void CWin2DView::ScenarioWin2D(Win2DViewNs::wuc::Compositor const& compositor, Win2DViewNs::wuc::ContainerVisual const& root, UINT dpi, int cx, int cy)
 {
     if (inDeviceLost || cx <= 0 || cy <= 0)
     {
@@ -857,26 +857,26 @@ void CWin2DView::ScenarioWin2D(ns::wuc::Compositor const& compositor, ns::wuc::C
 
             if (drawingSurface != nullptr)
             {
-                drawingSurface.Resize(ns::wg::SizeInt32{ width, height });
+                drawingSurface.Resize(Win2DViewNs::wg::SizeInt32{ width, height });
                 contentVisual.Brush(compositor.CreateSurfaceBrush(drawingSurface));
             }
 
             if (drawingSurface == nullptr)
             {
-                canvasDevice = ns::mgc::CanvasDevice::GetSharedDevice();
+                canvasDevice = Win2DViewNs::mgc::CanvasDevice::GetSharedDevice();
                 auto dxgiDevice = GetDXGIDevice(canvasDevice);
                 deviceLostHelper.WatchDevice(dxgiDevice);
                 deviceLostHelper.DeviceLost({ this, &CWin2DView::OnDirect3DDeviceLost });
 
                 if (graphicsDevice == nullptr)
                 {
-                    graphicsDevice = ns::mgcu::CanvasComposition::CreateCompositionGraphicsDevice(compositor, canvasDevice);
+                    graphicsDevice = Win2DViewNs::mgcu::CanvasComposition::CreateCompositionGraphicsDevice(compositor, canvasDevice);
                 }
 
                 drawingSurface = graphicsDevice.CreateDrawingSurface(
-                    ns::wf::Size(static_cast<float>(width), static_cast<float>(height)),
-                    ns::wgd::DirectXPixelFormat::B8G8R8A8UIntNormalized,
-                    ns::wgd::DirectXAlphaMode::Premultiplied);
+                    Win2DViewNs::wf::Size(static_cast<float>(width), static_cast<float>(height)),
+                    Win2DViewNs::wgd::DirectXPixelFormat::B8G8R8A8UIntNormalized,
+                    Win2DViewNs::wgd::DirectXAlphaMode::Premultiplied);
 
                 contentVisual.Brush(compositor.CreateSurfaceBrush(drawingSurface));
             }
@@ -888,7 +888,7 @@ void CWin2DView::ScenarioWin2D(ns::wuc::Compositor const& compositor, ns::wuc::C
 
             Redraw(width / 4.0f, height / 4.0f, 300.0f, 300.0f, static_cast<float>(width), static_cast<float>(height), dpi);
         }
-        catch (ns::wr::hresult_error const&)
+        catch (Win2DViewNs::wr::hresult_error const&)
         {
             renderTimer.stop();
         }
@@ -930,10 +930,10 @@ bool CWin2DView::Redraw(float cx, float cy, float wx, float wy, float width, flo
 
     try
     {
-        auto clearColor = ns::wui::Colors::Black();
+        auto clearColor = Win2DViewNs::wui::Colors::Black();
         clearColor.A = 0;
 
-        auto renderEffectsFrame = [&](ns::mgc::ICanvasResourceCreator const& resourceCreator, float sceneWidth, float sceneHeight)
+        auto renderEffectsFrame = [&](Win2DViewNs::mgc::ICanvasResourceCreator const& resourceCreator, float sceneWidth, float sceneHeight)
         {
             bool newBitmap = false;
             bool recreateBitmap = sceneBitmap == nullptr;
@@ -949,13 +949,13 @@ bool CWin2DView::Redraw(float cx, float cy, float wx, float wy, float width, flo
             }
             if (recreateBitmap)
             {
-                sceneBitmap = ns::mgc::CanvasRenderTarget(resourceCreator, sceneWidth, sceneHeight, kPixelsDpi);
-                trailBitmap = ns::mgc::CanvasRenderTarget(resourceCreator, sceneWidth, sceneHeight, kPixelsDpi);
+                sceneBitmap = Win2DViewNs::mgc::CanvasRenderTarget(resourceCreator, sceneWidth, sceneHeight, kPixelsDpi);
+                trailBitmap = Win2DViewNs::mgc::CanvasRenderTarget(resourceCreator, sceneWidth, sceneHeight, kPixelsDpi);
                 newBitmap = true;
             }
             else if (trailBitmap == nullptr)
             {
-                trailBitmap = ns::mgc::CanvasRenderTarget(resourceCreator, sceneWidth, sceneHeight, kPixelsDpi);
+                trailBitmap = Win2DViewNs::mgc::CanvasRenderTarget(resourceCreator, sceneWidth, sceneHeight, kPixelsDpi);
                 newBitmap = true;
             }
 
@@ -963,7 +963,7 @@ bool CWin2DView::Redraw(float cx, float cy, float wx, float wy, float width, flo
             drawingSession.Clear(clearColor);
             if (!newBitmap && trailBitmap != nullptr)
             {
-                ns::mgce::OpacityEffect fadedTrail;
+                Win2DViewNs::mgce::OpacityEffect fadedTrail;
                 fadedTrail.Source(trailBitmap);
                 fadedTrail.Opacity(0.90f);
                 drawingSession.DrawImage(fadedTrail);
@@ -974,26 +974,26 @@ bool CWin2DView::Redraw(float cx, float cy, float wx, float wy, float width, flo
             const float blockX = sceneWidth * 0.18f;
             const float blockY = sceneHeight * 0.20f;
 
-            ns::wfn::float2 center(sceneWidth * 0.5f, sceneHeight * 0.5f);
-            drawingSession.Transform(ns::wfn::make_float3x2_rotation(static_cast<float>(angle * kPi / 180.0), center) * drawingSession.Transform());
+            Win2DViewNs::wfn::float2 center(sceneWidth * 0.5f, sceneHeight * 0.5f);
+            drawingSession.Transform(Win2DViewNs::wfn::make_float3x2_rotation(static_cast<float>(angle * kPi / 180.0), center) * drawingSession.Transform());
 
-            drawingSession.FillRectangle(ns::wf::Rect{ blockX, blockY, blockW, blockH }, ns::wui::Colors::Red());
-            drawingSession.FillRectangle(ns::wf::Rect{ blockX + blockW, blockY + blockH, blockW, blockH }, ns::wui::Colors::Green());
+            drawingSession.FillRectangle(Win2DViewNs::wf::Rect{ blockX, blockY, blockW, blockH }, Win2DViewNs::wui::Colors::Red());
+            drawingSession.FillRectangle(Win2DViewNs::wf::Rect{ blockX + blockW, blockY + blockH, blockW, blockH }, Win2DViewNs::wui::Colors::Green());
 
-            ns::mgct::CanvasTextFormat textFormat;
+            Win2DViewNs::mgct::CanvasTextFormat textFormat;
             textFormat.FontSize(angle / 2 + 1);
 
-            const ns::wr::hstring message{ L"Hello Win2D in WTL!" };
-            const ns::wf::Rect textRect{ 0, 0, sceneWidth, sceneHeight };
-            ns::mgc::CanvasRenderTarget textBitmap(resourceCreator, sceneWidth, sceneHeight, kPixelsDpi);
+            const Win2DViewNs::wr::hstring message{ L"Hello Win2D in WTL!" };
+            const Win2DViewNs::wf::Rect textRect{ 0, 0, sceneWidth, sceneHeight };
+            Win2DViewNs::mgc::CanvasRenderTarget textBitmap(resourceCreator, sceneWidth, sceneHeight, kPixelsDpi);
             auto textSession = textBitmap.CreateDrawingSession();
-            auto textClear = ns::wui::Colors::Black();
+            auto textClear = Win2DViewNs::wui::Colors::Black();
             textClear.A = 0;
             textSession.Clear(textClear);
-            textSession.DrawText(message, textRect, ns::wui::Colors::Blue(), textFormat);
+            textSession.DrawText(message, textRect, Win2DViewNs::wui::Colors::Blue(), textFormat);
             textSession.Close();
 
-            ns::mgce::GaussianBlurEffect blur;
+            Win2DViewNs::mgce::GaussianBlurEffect blur;
             blur.BlurAmount(5);
             blur.Source(textBitmap);
             drawingSession.DrawImage(blur);
@@ -1007,7 +1007,7 @@ bool CWin2DView::Redraw(float cx, float cy, float wx, float wy, float width, flo
             }
 
             ConfigureEffect();
-            drawingSession.DrawImage(compositeEffect, ns::wfn::float2(sceneWidth / 2.0f, sceneHeight / 2.0f));
+            drawingSession.DrawImage(compositeEffect, Win2DViewNs::wfn::float2(sceneWidth / 2.0f, sceneHeight / 2.0f));
             drawingSession.Close();
 
             if (trailBitmap != nullptr)
@@ -1023,22 +1023,22 @@ bool CWin2DView::Redraw(float cx, float cy, float wx, float wy, float width, flo
         const bool renderEffectsOnly = renderLayerMode == RenderLayerMode::EffectsOnly;
         if (document == nullptr || document->Empty() || renderEffectsOnly)
         {
-            ns::mgc::CanvasDrawingSession rootSession{ nullptr };
+            Win2DViewNs::mgc::CanvasDrawingSession rootSession{ nullptr };
             auto outputTransform = IdentityTransform();
             if (clipRect == nullptr)
             {
-                ns::wf::Rect updateRect(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height));
-                rootSession = ns::mgcu::CanvasComposition::CreateDrawingSession(drawingSurface, updateRect);
+                Win2DViewNs::wf::Rect updateRect(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height));
+                rootSession = Win2DViewNs::mgcu::CanvasComposition::CreateDrawingSession(drawingSurface, updateRect);
                 rootSession.Clear(clearColor);
             }
             else
             {
-                ns::wf::Rect updateRect(
+                Win2DViewNs::wf::Rect updateRect(
                     static_cast<float>(clipRect->left),
                     static_cast<float>(clipRect->top),
                     static_cast<float>(clipRect->Width()),
                     static_cast<float>(clipRect->Height()));
-                rootSession = ns::mgcu::CanvasComposition::CreateDrawingSession(drawingSurface, updateRect);
+                rootSession = Win2DViewNs::mgcu::CanvasComposition::CreateDrawingSession(drawingSurface, updateRect);
                 if (!(hasSvg && renderEffectsOnly))
                 {
                     outputTransform.m31 -= static_cast<float>(clipRect->left);
@@ -1058,7 +1058,7 @@ bool CWin2DView::Redraw(float cx, float cy, float wx, float wy, float width, flo
                 sceneHeight = std::max<float>(static_cast<float>(total.cy), height);
             }
 
-            auto resourceCreator = rootSession.as<ns::mgc::ICanvasResourceCreator>();
+            auto resourceCreator = rootSession.as<Win2DViewNs::mgc::ICanvasResourceCreator>();
             renderEffectsFrame(resourceCreator, sceneWidth, sceneHeight);
 
             rootSession.Transform(outputTransform);
@@ -1069,34 +1069,34 @@ bool CWin2DView::Redraw(float cx, float cy, float wx, float wy, float width, flo
 
         if (svgDocument != nullptr)
         {
-            ns::mgc::CanvasDrawingSession session = nullptr;
+            Win2DViewNs::mgc::CanvasDrawingSession session = nullptr;
             auto transform = transformMatrix;
 
             if (clipRect == nullptr)
             {
-                ns::wf::Rect updateRect(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height));
-                session = ns::mgcu::CanvasComposition::CreateDrawingSession(drawingSurface, updateRect);
+                Win2DViewNs::wf::Rect updateRect(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height));
+                session = Win2DViewNs::mgcu::CanvasComposition::CreateDrawingSession(drawingSurface, updateRect);
             }
             else
             {
-                ns::wf::Rect updateRect(
+                Win2DViewNs::wf::Rect updateRect(
                     static_cast<float>(clipRect->left),
                     static_cast<float>(clipRect->top),
                     static_cast<float>(clipRect->Width()),
                     static_cast<float>(clipRect->Height()));
-                session = ns::mgcu::CanvasComposition::CreateDrawingSession(drawingSurface, updateRect);
+                session = Win2DViewNs::mgcu::CanvasComposition::CreateDrawingSession(drawingSurface, updateRect);
                 transform.m31 -= static_cast<float>(clipRect->left);
                 transform.m32 -= static_cast<float>(clipRect->top);
             }
 
-            session.Antialiasing(ns::mgc::CanvasAntialiasing::Antialiased);
+            session.Antialiasing(Win2DViewNs::mgc::CanvasAntialiasing::Antialiased);
 
-            ns::wr::com_ptr<ID2D1RenderTarget> target{ nullptr };
+            Win2DViewNs::wr::com_ptr<ID2D1RenderTarget> target{ nullptr };
             if (clipRect != nullptr)
             {
-                ns::wr::com_ptr<ABI::Microsoft::Graphics::Canvas::ICanvasResourceWrapperNative> nativeDeviceWrapper =
+                Win2DViewNs::wr::com_ptr<ABI::Microsoft::Graphics::Canvas::ICanvasResourceWrapperNative> nativeDeviceWrapper =
                     session.as<ABI::Microsoft::Graphics::Canvas::ICanvasResourceWrapperNative>();
-                ns::wr::check_hresult(nativeDeviceWrapper->GetNativeResource(nullptr, 0.0f, ns::wr::guid_of<ID2D1RenderTarget>(), target.put_void()));
+                Win2DViewNs::wr::check_hresult(nativeDeviceWrapper->GetNativeResource(nullptr, 0.0f, Win2DViewNs::wr::guid_of<ID2D1RenderTarget>(), target.put_void()));
 
                 D2D1_RECT_F clip{};
                 clip.left = 0;
@@ -1106,7 +1106,7 @@ bool CWin2DView::Redraw(float cx, float cy, float wx, float wy, float width, flo
                 target->PushAxisAlignedClip(clip, D2D1_ANTIALIAS_MODE_ALIASED);
             }
 
-            auto transparent = ns::wui::Colors::Black();
+            auto transparent = Win2DViewNs::wui::Colors::Black();
             transparent.A = 0;
             session.Clear(transparent);
 
@@ -1117,7 +1117,7 @@ bool CWin2DView::Redraw(float cx, float cy, float wx, float wy, float width, flo
 
             if (drawEffects)
             {
-                auto resourceCreator = session.as<ns::mgc::ICanvasResourceCreator>();
+                auto resourceCreator = session.as<Win2DViewNs::mgc::ICanvasResourceCreator>();
                 renderEffectsFrame(resourceCreator, effectWidth, effectHeight);
             }
 
@@ -1130,7 +1130,7 @@ bool CWin2DView::Redraw(float cx, float cy, float wx, float wy, float width, flo
             if (drawSvg)
             {
                 session.Transform(transform);
-                session.DrawSvg(svgDocument, ns::wf::Size(static_cast<float>(width), static_cast<float>(height)));
+                session.DrawSvg(svgDocument, Win2DViewNs::wf::Size(static_cast<float>(width), static_cast<float>(height)));
                 DrawSvgTextOverlay(session, transform);
             }
 
@@ -1148,7 +1148,7 @@ bool CWin2DView::Redraw(float cx, float cy, float wx, float wy, float width, flo
             session.Close();
         }
     }
-    catch (ns::wr::hresult_error const&)
+    catch (Win2DViewNs::wr::hresult_error const&)
     {
         return false;
     }
@@ -1216,7 +1216,7 @@ bool CWin2DView::LoadSvg()
     }
     text = InlineSvgClassStyles(std::move(text));
 
-    svgXml = ns::wr::hstring(text);
+    svgXml = Win2DViewNs::wr::hstring(text);
 
     try
     {
@@ -1225,10 +1225,10 @@ bool CWin2DView::LoadSvg()
             svgDocument.Close();
         }
 
-        auto canvasDevice = ns::mgc::CanvasDevice::GetSharedDevice();
-        svgDocument = ns::mgcs::CanvasSvgDocument::LoadFromXml(canvasDevice, svgXml);
+        auto canvasDevice = Win2DViewNs::mgc::CanvasDevice::GetSharedDevice();
+        svgDocument = Win2DViewNs::mgcs::CanvasSvgDocument::LoadFromXml(canvasDevice, svgXml);
     }
-    catch (ns::wr::hresult_error const& ex)
+    catch (Win2DViewNs::wr::hresult_error const& ex)
     {
         std::wstring message = L"Error loading SVG:\n";
         message += ex.message();
@@ -1258,7 +1258,7 @@ bool CWin2DView::LoadSvg()
             svgDocumentWidth = rootElement.GetFloatAttribute(L"width");
             svgDocumentHeight = rootElement.GetFloatAttribute(L"height");
         }
-        catch (ns::wr::hresult_error const&)
+        catch (Win2DViewNs::wr::hresult_error const&)
         {
             try
             {
@@ -1266,7 +1266,7 @@ bool CWin2DView::LoadSvg()
                 svgDocumentWidth = viewBox.Width;
                 svgDocumentHeight = viewBox.Height;
             }
-            catch (ns::wr::hresult_error const&)
+            catch (Win2DViewNs::wr::hresult_error const&)
             {
                 svgDocumentWidth = static_cast<float>(width);
                 svgDocumentHeight = static_cast<float>(height);
@@ -1290,63 +1290,63 @@ bool CWin2DView::LoadSvg()
 
 void CWin2DView::CreateFlameEffect()
 {
-    morphologyEffect = ns::mgce::MorphologyEffect();
-    morphologyEffect.Mode(ns::mgce::MorphologyEffectMode::Dilate);
+    morphologyEffect = Win2DViewNs::mgce::MorphologyEffect();
+    morphologyEffect.Mode(Win2DViewNs::mgce::MorphologyEffectMode::Dilate);
     morphologyEffect.Width(7);
     morphologyEffect.Height(1);
 
-    auto blur = ns::mgce::GaussianBlurEffect();
+    auto blur = Win2DViewNs::mgce::GaussianBlurEffect();
     blur.Source(morphologyEffect);
     blur.BlurAmount(3.0f);
 
-    ns::mgce::Matrix5x4 colorMatrix{};
+    Win2DViewNs::mgce::Matrix5x4 colorMatrix{};
     colorMatrix.M42 = 1.0f;
     colorMatrix.M44 = 1.0f;
     colorMatrix.M51 = 1.0f;
     colorMatrix.M52 = -0.5f;
 
-    auto colorize = ns::mgce::ColorMatrixEffect();
+    auto colorize = Win2DViewNs::mgce::ColorMatrixEffect();
     colorize.Source(blur);
     colorize.ColorMatrix(colorMatrix);
 
-    ns::mgce::TurbulenceEffect turbulence;
-    turbulence.Frequency(ns::wfn::float2(0.109f, 0.109f));
-    turbulence.Size(ns::wfn::float2(500.0f, 80.0f));
+    Win2DViewNs::mgce::TurbulenceEffect turbulence;
+    turbulence.Frequency(Win2DViewNs::wfn::float2(0.109f, 0.109f));
+    turbulence.Size(Win2DViewNs::wfn::float2(500.0f, 80.0f));
 
-    ns::mgce::BorderEffect border;
+    Win2DViewNs::mgce::BorderEffect border;
     border.Source(turbulence);
-    border.ExtendX(ns::mgc::CanvasEdgeBehavior::Mirror);
-    border.ExtendY(ns::mgc::CanvasEdgeBehavior::Mirror);
+    border.ExtendX(Win2DViewNs::mgc::CanvasEdgeBehavior::Mirror);
+    border.ExtendY(Win2DViewNs::mgc::CanvasEdgeBehavior::Mirror);
 
-    flameAnimation = ns::mgce::Transform2DEffect();
+    flameAnimation = Win2DViewNs::mgce::Transform2DEffect();
     flameAnimation.Source(border);
 
-    ns::mgce::DisplacementMapEffect displacement;
+    Win2DViewNs::mgce::DisplacementMapEffect displacement;
     displacement.Source(colorize);
     displacement.Displacement(flameAnimation);
     displacement.Amount(40.0f);
 
-    flamePosition = ns::mgce::Transform2DEffect();
+    flamePosition = Win2DViewNs::mgce::Transform2DEffect();
     flamePosition.Source(displacement);
 
-    compositeEffect = ns::mgce::CompositeEffect();
+    compositeEffect = Win2DViewNs::mgce::CompositeEffect();
     compositeEffect.Sources().Append(flamePosition);
     compositeEffect.Sources().Append(nullptr);
 }
 
-void CWin2DView::SetupText(ns::mgc::ICanvasResourceCreator resourceCreator)
+void CWin2DView::SetupText(Win2DViewNs::mgc::ICanvasResourceCreator resourceCreator)
 {
-    ns::mgc::CanvasCommandList textCommandList(resourceCreator);
+    Win2DViewNs::mgc::CanvasCommandList textCommandList(resourceCreator);
     auto drawingSession = textCommandList.CreateDrawingSession();
-    drawingSession.Clear(ns::wui::Color{ 0, 0, 0, 0 });
+    drawingSession.Clear(Win2DViewNs::wui::Color{ 0, 0, 0, 0 });
 
-    ns::mgct::CanvasTextFormat textFormat;
+    Win2DViewNs::mgct::CanvasTextFormat textFormat;
     textFormat.FontFamily(L"Segoe UI");
     textFormat.FontSize(fontSize);
-    textFormat.HorizontalAlignment(ns::mgct::CanvasHorizontalAlignment::Center);
-    textFormat.VerticalAlignment(ns::mgct::CanvasVerticalAlignment::Top);
+    textFormat.HorizontalAlignment(Win2DViewNs::mgct::CanvasHorizontalAlignment::Center);
+    textFormat.VerticalAlignment(Win2DViewNs::mgct::CanvasVerticalAlignment::Top);
 
-    drawingSession.DrawText(ns::wr::to_hstring(displayText), 0, 0, ns::wui::Colors::White(), textFormat);
+    drawingSession.DrawText(Win2DViewNs::wr::to_hstring(displayText), 0, 0, Win2DViewNs::wui::Colors::White(), textFormat);
     drawingSession.Close();
 
     morphologyEffect.Source(textCommandList);
@@ -1355,9 +1355,9 @@ void CWin2DView::SetupText(ns::mgc::ICanvasResourceCreator resourceCreator)
 
 void CWin2DView::ConfigureEffect()
 {
-    flameAnimation.TransformMatrix(ns::wfn::make_float3x2_translation(0, -((60.0f * static_cast<float>(::clock())) / CLOCKS_PER_SEC)));
+    flameAnimation.TransformMatrix(Win2DViewNs::wfn::make_float3x2_translation(0, -((60.0f * static_cast<float>(::clock())) / CLOCKS_PER_SEC)));
     const float verticalOffset = fontSize * 1.4f;
-    flamePosition.TransformMatrix(ns::wfn::make_float3x2_scale(1, 2, ns::wfn::float2(0, verticalOffset)));
+    flamePosition.TransformMatrix(Win2DViewNs::wfn::make_float3x2_scale(1, 2, Win2DViewNs::wfn::float2(0, verticalOffset)));
 }
 
 void CWin2DView::SurfaceScroll(CPoint const& newPosition)
@@ -1366,7 +1366,7 @@ void CWin2DView::SurfaceScroll(CPoint const& newPosition)
     const int dy = newPosition.y - static_cast<int>(-transformMatrix.m32);
     if ((dx != 0 || dy != 0) && drawingSurface != nullptr)
     {
-        drawingSurface.Scroll(ns::wg::PointInt32{ -dx, -dy });
+        drawingSurface.Scroll(Win2DViewNs::wg::PointInt32{ -dx, -dy });
     }
 }
 

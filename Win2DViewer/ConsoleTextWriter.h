@@ -6,7 +6,7 @@
 #include <string>
 #include <string_view>
 
-namespace diagnosticconsole
+namespace DiagnosticConsole
 {
     class LineBuilder
     {

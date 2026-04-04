@@ -38,9 +38,9 @@ namespace ConsoleDebugLifecycle
                 return;
             }
 
-            diagnosticconsole::LineBuilder line;
+            DiagnosticConsole::LineBuilder line;
             line << L"[ConsoleDebug] close-signal source=" << source << L", detaching console.";
-            diagnosticconsole::WriteLine(line.str());
+            DiagnosticConsole::WriteLine(line.str());
 
             if (gConsoleOwnedByApp)
             {
@@ -54,8 +54,8 @@ namespace ConsoleDebugLifecycle
 
             gConsoleAllocated = false;
             gConsoleOwnedByApp = false;
-            consolemenu::SetInjectionDiagnosticsEnabled(false);
-            consolemenu::ResetConsoleHookState();
+            ConsoleMenu::SetInjectionDiagnosticsEnabled(false);
+            ConsoleMenu::ResetConsoleHookState();
             if (gConsoleStateSyncTargetWindow != nullptr && ::IsWindow(gConsoleStateSyncTargetWindow))
             {
                 ::PostMessageW(gConsoleStateSyncTargetWindow, kConsoleDebugStateSyncMsg, FALSE, 0);
@@ -75,7 +75,7 @@ namespace ConsoleDebugLifecycle
                 // References:
                 // https://learn.microsoft.com/windows/console/handlerroutine
                 // https://learn.microsoft.com/windows/console/setconsolectrlhandler
-                diagnosticconsole::WriteLine(
+                DiagnosticConsole::WriteLine(
                     L"[ConsoleDebug] Ctrl+C/Ctrl+Break is blocked in debug-console mode. "
                     L"Use interactive window close instead.");
                 return TRUE;
@@ -128,7 +128,7 @@ namespace ConsoleDebugLifecycle
                 return true;
             }
 
-            const std::wstring notifyEventName = consolehookipc::BuildConsoleCloseNotifyEventName(::GetCurrentProcessId());
+            const std::wstring notifyEventName = ConsoleHookIpc::BuildConsoleCloseNotifyEventName(::GetCurrentProcessId());
             gConsoleCloseNotifyEvent = ::CreateEventW(nullptr, FALSE, FALSE, notifyEventName.c_str());
             gConsoleCtrlFallbackEvent = ::CreateEventW(nullptr, FALSE, FALSE, nullptr);
             gConsoleMonitorStopEvent = ::CreateEventW(nullptr, TRUE, FALSE, nullptr);
@@ -215,13 +215,13 @@ namespace ConsoleDebugLifecycle
         freopen_s(&stream, "CONOUT$", "w", stdout);
         freopen_s(&stream, "CONOUT$", "w", stderr);
         freopen_s(&stream, "CONIN$", "r", stdin);
-        diagnosticconsole::ConfigureUnicodeConsole();
+        DiagnosticConsole::ConfigureUnicodeConsole();
         gConsoleAllocated = true;
         gConsoleOwnedByApp = true;
-        consolemenu::SetInjectionDiagnosticsEnabled(true);
-        diagnosticconsole::WriteLine(L"[ConsoleDebug] Console attached.");
+        ConsoleMenu::SetInjectionDiagnosticsEnabled(true);
+        DiagnosticConsole::WriteLine(L"[ConsoleDebug] Console attached.");
         (void)StartConsoleCloseMonitor();
-        consolemenu::BeginConsoleHookInjectionAsync();
+        ConsoleMenu::BeginConsoleHookInjectionAsync();
     }
 
     void ReleaseDebugConsole()
@@ -246,8 +246,8 @@ namespace ConsoleDebugLifecycle
 
         gConsoleAllocated = false;
         gConsoleOwnedByApp = false;
-        consolemenu::SetInjectionDiagnosticsEnabled(false);
-        consolemenu::ResetConsoleHookState();
+        ConsoleMenu::SetInjectionDiagnosticsEnabled(false);
+        ConsoleMenu::ResetConsoleHookState();
     }
 
     void DebugPrintLine(std::wstring const& line)
@@ -257,6 +257,6 @@ namespace ConsoleDebugLifecycle
             return;
         }
 
-        diagnosticconsole::WriteLine(line);
+        DiagnosticConsole::WriteLine(line);
     }
 }

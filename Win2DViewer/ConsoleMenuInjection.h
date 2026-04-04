@@ -1,6 +1,6 @@
 #pragma once
 
-namespace consolemenu
+namespace ConsoleMenu
 {
     void BeginConsoleHookInjectionAsync();
     bool EnsureConsoleHookInjected();

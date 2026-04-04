@@ -13,7 +13,7 @@
 
 #include "devicelost.h"
 
-namespace ns
+namespace DeviceLostNs
 {
     namespace wr = wna::rt;
     namespace wgi = wna::wd::gd3;
@@ -25,20 +25,20 @@ DeviceLostHelper::~DeviceLostHelper()
     onDeviceLostHandler = nullptr;
 }
 
-void DeviceLostHelper::WatchDevice(ns::wr::com_ptr<::IDXGIDevice> const& newDxgiDevice)
+void DeviceLostHelper::WatchDevice(DeviceLostNs::wr::com_ptr<::IDXGIDevice> const& newDxgiDevice)
 {
     // If we're currently listening to a device, then stop.
     StopWatchingCurrentDevice();
 
     // Set the current device to the new device.
     device = nullptr;
-    ns::wr::check_hresult(::CreateDirect3D11DeviceFromDXGIDevice(newDxgiDevice.get(), reinterpret_cast<::IInspectable**>(ns::wr::put_abi(device))));
+    DeviceLostNs::wr::check_hresult(::CreateDirect3D11DeviceFromDXGIDevice(newDxgiDevice.get(), reinterpret_cast<::IInspectable**>(DeviceLostNs::wr::put_abi(device))));
 
     // Get the DXGI Device.
     dxgiDevice = newDxgiDevice;
 
     // QI For the ID3D11Device4 interface.
-    ns::wr::com_ptr<::ID3D11Device4> d3dDevice{ dxgiDevice.as<::ID3D11Device4>() };
+    DeviceLostNs::wr::com_ptr<::ID3D11Device4> d3dDevice{ dxgiDevice.as<::ID3D11Device4>() };
 
     // Create a wait struct.
     onDeviceLostHandler = nullptr;
@@ -46,12 +46,12 @@ void DeviceLostHelper::WatchDevice(ns::wr::com_ptr<::IDXGIDevice> const& newDxgi
 
     // Create a handle and a cookie.
     eventHandle.attach(::CreateEvent(nullptr, false, false, nullptr));
-    ns::wr::check_bool(bool{ eventHandle });
+    DeviceLostNs::wr::check_bool(bool{ eventHandle });
     cookie = 0;
 
     // Register for device lost.
     ::SetThreadpoolWait(onDeviceLostHandler, eventHandle.get(), nullptr);
-    ns::wr::check_hresult(d3dDevice->RegisterDeviceRemovedEvent(eventHandle.get(), &cookie));
+    DeviceLostNs::wr::check_hresult(d3dDevice->RegisterDeviceRemovedEvent(eventHandle.get(), &cookie));
 }
 
 void DeviceLostHelper::StopWatchingCurrentDevice()
@@ -73,12 +73,12 @@ void DeviceLostHelper::StopWatchingCurrentDevice()
     }
 }
 
-void DeviceLostHelper::DeviceLost(ns::wr::delegate<DeviceLostHelper const*, DeviceLostEventArgs const&> const& handler)
+void DeviceLostHelper::DeviceLost(DeviceLostNs::wr::delegate<DeviceLostHelper const*, DeviceLostEventArgs const&> const& handler)
 {
     deviceLostHandler = handler;
 }
 
-void DeviceLostHelper::RaiseDeviceLostEvent(ns::wgi::IDirect3DDevice const& oldDevice)
+void DeviceLostHelper::RaiseDeviceLostEvent(DeviceLostNs::wgi::IDirect3DDevice const& oldDevice)
 {
     deviceLostHandler(this, DeviceLostEventArgs::Create(oldDevice));
 }

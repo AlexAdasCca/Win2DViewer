@@ -5,7 +5,7 @@
 #include <DispatcherQueue.h>
 #include "WinrtNsAliases.h"
 
-namespace desktopinterop
+namespace DesktopInterop
 {
     enum class DesktopHostBackend
     {

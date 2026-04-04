@@ -23,7 +23,7 @@
 #pragma comment(lib, "dwmapi.lib")
 #pragma comment(lib, "dxgi.lib")
 
-namespace ns
+namespace DesktopInteropNs
 {
     namespace wr = wna::rt;
     namespace wus = wna::wd::sys;
@@ -55,7 +55,7 @@ namespace
     constexpr DWORD kDwmAttrUseHostBackdropBrush = static_cast<DWORD>(DWMWA_USE_HOSTBACKDROPBRUSH);
 #endif
 
-    std::optional<ns::wus::DispatcherQueueController> gDispatcherQueueController;
+    std::optional<DesktopInteropNs::wus::DispatcherQueueController> gDispatcherQueueController;
     class DesktopHostWindow;
     std::unordered_map<HWND, std::unique_ptr<DesktopHostWindow>> gDesktopHostWindows;
 
@@ -119,7 +119,7 @@ namespace
     class DesktopHostWindow
     {
     public:
-        explicit DesktopHostWindow(desktopinterop::DesktopHostBackend backend)
+        explicit DesktopHostWindow(DesktopInterop::DesktopHostBackend backend)
             : backend(backend)
         {
         }
@@ -136,11 +136,11 @@ namespace
             ::RegisterClassW(&windowClass);
 
             const wchar_t* windowTitle = L"Desktop Host - WinRT Composition Surface";
-            if (backend == desktopinterop::DesktopHostBackend::DirectComposition)
+            if (backend == DesktopInterop::DesktopHostBackend::DirectComposition)
             {
                 windowTitle = L"Desktop Host - DirectComposition Flow Material";
             }
-            else if (backend == desktopinterop::DesktopHostBackend::WinRTHostBackdrop)
+            else if (backend == DesktopInterop::DesktopHostBackend::WinRTHostBackdrop)
             {
                 windowTitle = L"Desktop Host - WinRT Host Backdrop Material";
             }
@@ -174,7 +174,7 @@ namespace
         {
             try
             {
-                if (backend == desktopinterop::DesktopHostBackend::DirectComposition)
+                if (backend == DesktopInterop::DesktopHostBackend::DirectComposition)
                 {
                     InitializeDirectComposition();
                 }
@@ -190,7 +190,7 @@ namespace
                 ::UpdateWindow(windowHandle);
                 return true;
             }
-            catch (ns::wr::hresult_error const& ex)
+            catch (DesktopInteropNs::wr::hresult_error const& ex)
             {
                 SetErrorMessage(errorMessage, std::wstring{ ex.message().c_str() });
                 return false;
@@ -221,28 +221,28 @@ namespace
                 }
                 return 0;
             case WM_MOUSEMOVE:
-                if (backend == desktopinterop::DesktopHostBackend::DirectComposition)
+                if (backend == DesktopInterop::DesktopHostBackend::DirectComposition)
                 {
                     HandleDirectCompositionMouseMove(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
                     return 0;
                 }
                 break;
             case WM_MOUSELEAVE:
-                if (backend == desktopinterop::DesktopHostBackend::DirectComposition)
+                if (backend == DesktopInterop::DesktopHostBackend::DirectComposition)
                 {
                     HandleDirectCompositionMouseLeave();
                     return 0;
                 }
                 break;
             case WM_LBUTTONDOWN:
-                if (backend == desktopinterop::DesktopHostBackend::DirectComposition)
+                if (backend == DesktopInterop::DesktopHostBackend::DirectComposition)
                 {
                     HandleDirectCompositionLButtonDown(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
                     return 0;
                 }
                 break;
             case WM_LBUTTONUP:
-                if (backend == desktopinterop::DesktopHostBackend::DirectComposition)
+                if (backend == DesktopInterop::DesktopHostBackend::DirectComposition)
                 {
                     HandleDirectCompositionLButtonUp(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
                     return 0;
@@ -300,22 +300,22 @@ namespace
     private:
         void InitializeWinRTComposition()
         {
-            desktopinterop::EnsureDispatcherQueueControllerForCurrentThread();
+            DesktopInterop::EnsureDispatcherQueueControllerForCurrentThread();
 
-            compositor = ns::wuc::Compositor();
+            compositor = DesktopInteropNs::wuc::Compositor();
 
             namespace abi = ABI::Windows::UI::Composition::Desktop;
             auto interop = compositor.as<abi::ICompositorDesktopInterop>();
-            ns::wr::check_hresult(interop->CreateDesktopWindowTarget(
+            DesktopInteropNs::wr::check_hresult(interop->CreateDesktopWindowTarget(
                 windowHandle,
                 true,
-                reinterpret_cast<abi::IDesktopWindowTarget**>(ns::wr::put_abi(compositionTarget))));
+                reinterpret_cast<abi::IDesktopWindowTarget**>(DesktopInteropNs::wr::put_abi(compositionTarget))));
 
             rootVisual = compositor.CreateContainerVisual();
             rootVisual.RelativeSizeAdjustment({ 1.0f, 1.0f });
             compositionTarget.Root(rootVisual);
 
-            if (backend == desktopinterop::DesktopHostBackend::WinRTHostBackdrop)
+            if (backend == DesktopInterop::DesktopHostBackend::WinRTHostBackdrop)
             {
                 EnableHostBackdropForWindow();
                 hostBackdropVisual = compositor.CreateSpriteVisual();
@@ -329,13 +329,13 @@ namespace
                 rootVisual.Children().InsertAtTop(hostTintVisual);
             }
 
-            canvasDevice = ns::mgc::CanvasDevice::GetSharedDevice();
-            compositionGraphicsDevice = ns::mgcu::CanvasComposition::CreateCompositionGraphicsDevice(compositor, canvasDevice);
+            canvasDevice = DesktopInteropNs::mgc::CanvasDevice::GetSharedDevice();
+            compositionGraphicsDevice = DesktopInteropNs::mgcu::CanvasComposition::CreateCompositionGraphicsDevice(compositor, canvasDevice);
 
             ResizeWinRTSurface();
 
             surfaceBrush = compositor.CreateSurfaceBrush(drawingSurface);
-            surfaceBrush.Stretch(ns::wuc::CompositionStretch::Fill);
+            surfaceBrush.Stretch(DesktopInteropNs::wuc::CompositionStretch::Fill);
 
             surfaceVisual = compositor.CreateSpriteVisual();
             surfaceVisual.RelativeSizeAdjustment({ 1.0f, 1.0f });
@@ -364,13 +364,13 @@ namespace
             if (drawingSurface == nullptr)
             {
                 drawingSurface = compositionGraphicsDevice.CreateDrawingSurface(
-                    ns::wf::Size(static_cast<float>(width), static_cast<float>(height)),
-                    ns::wgx::DirectXPixelFormat::B8G8R8A8UIntNormalized,
-                    ns::wgx::DirectXAlphaMode::Premultiplied);
+                    DesktopInteropNs::wf::Size(static_cast<float>(width), static_cast<float>(height)),
+                    DesktopInteropNs::wgx::DirectXPixelFormat::B8G8R8A8UIntNormalized,
+                    DesktopInteropNs::wgx::DirectXAlphaMode::Premultiplied);
             }
             else
             {
-                drawingSurface.Resize(ns::wg::SizeInt32{ width, height });
+                drawingSurface.Resize(DesktopInteropNs::wg::SizeInt32{ width, height });
             }
 
             surfacePixelWidth = width;
@@ -386,23 +386,23 @@ namespace
                 return;
             }
 
-            auto drawingSession = ns::mgcu::CanvasComposition::CreateDrawingSession(drawingSurface);
+            auto drawingSession = DesktopInteropNs::mgcu::CanvasComposition::CreateDrawingSession(drawingSurface);
 
-            const ns::wui::Color backgroundColor{ 0xFF, 0x08, 0x1A, 0x2E };
-            const ns::wui::Color frameColor{ 0xFF, 0x2F, 0x6E, 0xB8 };
-            const ns::wui::Color orbColor{ 0xFF, 0xFF, 0xA5, 0x00 };
-            const ns::wui::Color textColor{ 0xFF, 0xF6, 0xF7, 0xFB };
-            const ns::wui::Color panelColor{ 0x98, 0x12, 0x1B, 0x25 };
-            const ns::wui::Color panelStroke{ 0xC0, 0x78, 0xB6, 0xF0 };
-            const ns::wui::Color velocityColor{ 0xD0, 0xFF, 0xE0, 0x66 };
+            const DesktopInteropNs::wui::Color backgroundColor{ 0xFF, 0x08, 0x1A, 0x2E };
+            const DesktopInteropNs::wui::Color frameColor{ 0xFF, 0x2F, 0x6E, 0xB8 };
+            const DesktopInteropNs::wui::Color orbColor{ 0xFF, 0xFF, 0xA5, 0x00 };
+            const DesktopInteropNs::wui::Color textColor{ 0xFF, 0xF6, 0xF7, 0xFB };
+            const DesktopInteropNs::wui::Color panelColor{ 0x98, 0x12, 0x1B, 0x25 };
+            const DesktopInteropNs::wui::Color panelStroke{ 0xC0, 0x78, 0xB6, 0xF0 };
+            const DesktopInteropNs::wui::Color velocityColor{ 0xD0, 0xFF, 0xE0, 0x66 };
 
-            if (backend == desktopinterop::DesktopHostBackend::WinRTComposition)
+            if (backend == DesktopInterop::DesktopHostBackend::WinRTComposition)
             {
                 drawingSession.Clear(backgroundColor);
             }
             else
             {
-                drawingSession.Clear(ns::wui::Color{ 0x00, 0x00, 0x00, 0x00 });
+                drawingSession.Clear(DesktopInteropNs::wui::Color{ 0x00, 0x00, 0x00, 0x00 });
             }
 
             const float width = static_cast<float>(surfacePixelWidth);
@@ -414,7 +414,7 @@ namespace
             drawingSession.FillCircle(ballPosition, radius, orbColor);
 
             const float velocityScale = 0.12f;
-            const ns::wfn::float2 velocityTip
+            const DesktopInteropNs::wfn::float2 velocityTip
             {
                 ballPosition.x + ballVelocity.x * velocityScale,
                 ballPosition.y + ballVelocity.y * velocityScale
@@ -425,7 +425,7 @@ namespace
             drawingSession.FillRoundedRectangle({ 24.0f, height - 110.0f, width - 48.0f, 76.0f }, 12.0f, 12.0f, panelColor);
             drawingSession.DrawRoundedRectangle({ 24.0f, height - 110.0f, width - 48.0f, 76.0f }, 12.0f, 12.0f, panelStroke, 1.5f);
 
-            const std::wstring title = (backend == desktopinterop::DesktopHostBackend::WinRTHostBackdrop)
+            const std::wstring title = (backend == DesktopInterop::DesktopHostBackend::WinRTHostBackdrop)
                 ? L"WinRT Host Backdrop Material - Physics Test"
                 : L"WinRT Composition Surface - Physics Test";
             drawingSession.DrawText(title, { 30.0f, 30.0f }, textColor);
@@ -508,34 +508,34 @@ namespace
             CreateD3D11Device();
 
             auto dxgiDevice = d3dDevice.as<IDXGIDevice>();
-            ns::wr::check_hresult(::DCompositionCreateDevice2(
+            DesktopInteropNs::wr::check_hresult(::DCompositionCreateDevice2(
                 dxgiDevice.get(),
                 __uuidof(IDCompositionDevice),
                 dcompDevice.put_void()));
 
-            ns::wr::check_hresult(dcompDevice->CreateTargetForHwnd(windowHandle, TRUE, dcompTarget.put()));
-            ns::wr::check_hresult(dcompDevice->CreateVisual(dcompVisual.put()));
-            ns::wr::check_hresult(dcompDevice->CreateVisual(dcompBackgroundVisual.put()));
-            ns::wr::check_hresult(dcompDevice->CreateVisual(dcompOverlayVisual.put()));
+            DesktopInteropNs::wr::check_hresult(dcompDevice->CreateTargetForHwnd(windowHandle, TRUE, dcompTarget.put()));
+            DesktopInteropNs::wr::check_hresult(dcompDevice->CreateVisual(dcompVisual.put()));
+            DesktopInteropNs::wr::check_hresult(dcompDevice->CreateVisual(dcompBackgroundVisual.put()));
+            DesktopInteropNs::wr::check_hresult(dcompDevice->CreateVisual(dcompOverlayVisual.put()));
 
             InitializeDirectCompositionPipeline();
             ResizeDirectCompositionSwapChain();
-            ns::wr::check_hresult(dcompBackgroundVisual->SetContent(dcompSwapChain.get()));
-            ns::wr::check_hresult(dcompOverlayVisual->SetContent(dcompOverlaySwapChain.get()));
-            ns::wr::check_hresult(dcompVisual->AddVisual(dcompBackgroundVisual.get(), FALSE, nullptr));
-            ns::wr::check_hresult(dcompVisual->AddVisual(dcompOverlayVisual.get(), TRUE, dcompBackgroundVisual.get()));
-            ns::wr::check_hresult(dcompTarget->SetRoot(dcompVisual.get()));
-            ns::wr::check_hresult(dcompDevice->Commit());
+            DesktopInteropNs::wr::check_hresult(dcompBackgroundVisual->SetContent(dcompSwapChain.get()));
+            DesktopInteropNs::wr::check_hresult(dcompOverlayVisual->SetContent(dcompOverlaySwapChain.get()));
+            DesktopInteropNs::wr::check_hresult(dcompVisual->AddVisual(dcompBackgroundVisual.get(), FALSE, nullptr));
+            DesktopInteropNs::wr::check_hresult(dcompVisual->AddVisual(dcompOverlayVisual.get(), TRUE, dcompBackgroundVisual.get()));
+            DesktopInteropNs::wr::check_hresult(dcompTarget->SetRoot(dcompVisual.get()));
+            DesktopInteropNs::wr::check_hresult(dcompDevice->Commit());
         }
 
         void CreateDCompCompositionSwapChain(DXGI_ALPHA_MODE alphaMode, UINT width, UINT height, IDXGISwapChain1** swapChain)
         {
             auto dxgiDevice = d3dDevice.as<IDXGIDevice>();
-            ns::wr::com_ptr<IDXGIAdapter> adapter;
-            ns::wr::check_hresult(dxgiDevice->GetAdapter(adapter.put()));
+            DesktopInteropNs::wr::com_ptr<IDXGIAdapter> adapter;
+            DesktopInteropNs::wr::check_hresult(dxgiDevice->GetAdapter(adapter.put()));
 
-            ns::wr::com_ptr<IDXGIFactory2> dxgiFactory;
-            ns::wr::check_hresult(adapter->GetParent(__uuidof(IDXGIFactory2), dxgiFactory.put_void()));
+            DesktopInteropNs::wr::com_ptr<IDXGIFactory2> dxgiFactory;
+            DesktopInteropNs::wr::check_hresult(adapter->GetParent(__uuidof(IDXGIFactory2), dxgiFactory.put_void()));
 
             DXGI_SWAP_CHAIN_DESC1 swapChainDesc{};
             swapChainDesc.Width = width;
@@ -551,7 +551,7 @@ namespace
             swapChainDesc.AlphaMode = alphaMode;
             swapChainDesc.Flags = 0;
 
-            ns::wr::check_hresult(dxgiFactory->CreateSwapChainForComposition(
+            DesktopInteropNs::wr::check_hresult(dxgiFactory->CreateSwapChainForComposition(
                 d3dDevice.get(),
                 &swapChainDesc,
                 nullptr,
@@ -639,7 +639,7 @@ namespace
                     d3dContext.put());
             }
 
-            ns::wr::check_hresult(hr);
+            DesktopInteropNs::wr::check_hresult(hr);
         }
 
         void InitializeDirectCompositionPipeline()
@@ -1105,9 +1105,9 @@ namespace
             shaderFlags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
 #endif
 
-            ns::wr::com_ptr<ID3DBlob> vertexShaderBlob;
-            ns::wr::com_ptr<ID3DBlob> pixelShaderBlob;
-            ns::wr::com_ptr<ID3DBlob> errorBlob;
+            DesktopInteropNs::wr::com_ptr<ID3DBlob> vertexShaderBlob;
+            DesktopInteropNs::wr::com_ptr<ID3DBlob> pixelShaderBlob;
+            DesktopInteropNs::wr::com_ptr<ID3DBlob> errorBlob;
 
             HRESULT hr = ::D3DCompile(
                 kVertexShaderSource,
@@ -1121,7 +1121,7 @@ namespace
                 0,
                 vertexShaderBlob.put(),
                 errorBlob.put());
-            ns::wr::check_hresult(hr);
+            DesktopInteropNs::wr::check_hresult(hr);
 
             errorBlob = nullptr;
             hr = ::D3DCompile(
@@ -1136,15 +1136,15 @@ namespace
                 0,
                 pixelShaderBlob.put(),
                 errorBlob.put());
-            ns::wr::check_hresult(hr);
+            DesktopInteropNs::wr::check_hresult(hr);
 
-            ns::wr::check_hresult(d3dDevice->CreateVertexShader(
+            DesktopInteropNs::wr::check_hresult(d3dDevice->CreateVertexShader(
                 vertexShaderBlob->GetBufferPointer(),
                 vertexShaderBlob->GetBufferSize(),
                 nullptr,
                 dcompVertexShader.put()));
 
-            ns::wr::check_hresult(d3dDevice->CreatePixelShader(
+            DesktopInteropNs::wr::check_hresult(d3dDevice->CreatePixelShader(
                 pixelShaderBlob->GetBufferPointer(),
                 pixelShaderBlob->GetBufferSize(),
                 nullptr,
@@ -1163,9 +1163,9 @@ namespace
                 0,
                 pixelShaderBlob.put(),
                 errorBlob.put());
-            ns::wr::check_hresult(hr);
+            DesktopInteropNs::wr::check_hresult(hr);
 
-            ns::wr::check_hresult(d3dDevice->CreatePixelShader(
+            DesktopInteropNs::wr::check_hresult(d3dDevice->CreatePixelShader(
                 pixelShaderBlob->GetBufferPointer(),
                 pixelShaderBlob->GetBufferSize(),
                 nullptr,
@@ -1178,10 +1178,10 @@ namespace
             constantBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
             constantBufferDesc.MiscFlags = 0;
             constantBufferDesc.StructureByteStride = 0;
-            ns::wr::check_hresult(d3dDevice->CreateBuffer(&constantBufferDesc, nullptr, dcompConstantBuffer.put()));
+            DesktopInteropNs::wr::check_hresult(d3dDevice->CreateBuffer(&constantBufferDesc, nullptr, dcompConstantBuffer.put()));
 
             constantBufferDesc.ByteWidth = sizeof(DCompOverlayConstants);
-            ns::wr::check_hresult(d3dDevice->CreateBuffer(&constantBufferDesc, nullptr, dcompOverlayConstantBuffer.put()));
+            DesktopInteropNs::wr::check_hresult(d3dDevice->CreateBuffer(&constantBufferDesc, nullptr, dcompOverlayConstantBuffer.put()));
         }
 
         void ResizeDirectCompositionSwapChain()
@@ -1204,17 +1204,17 @@ namespace
                 d3dContext->OMSetRenderTargets(0, nullptr, nullptr);
                 d3dContext->ClearState();
                 d3dContext->Flush();
-                ns::wr::check_hresult(dcompSwapChain->ResizeBuffers(2, width, height, DXGI_FORMAT_B8G8R8A8_UNORM, 0));
-                ns::wr::check_hresult(dcompOverlaySwapChain->ResizeBuffers(2, width, height, DXGI_FORMAT_B8G8R8A8_UNORM, 0));
+                DesktopInteropNs::wr::check_hresult(dcompSwapChain->ResizeBuffers(2, width, height, DXGI_FORMAT_B8G8R8A8_UNORM, 0));
+                DesktopInteropNs::wr::check_hresult(dcompOverlaySwapChain->ResizeBuffers(2, width, height, DXGI_FORMAT_B8G8R8A8_UNORM, 0));
             }
 
-            ns::wr::com_ptr<ID3D11Texture2D> backBuffer;
-            ns::wr::check_hresult(dcompSwapChain->GetBuffer(0, IID_PPV_ARGS(backBuffer.put())));
-            ns::wr::check_hresult(d3dDevice->CreateRenderTargetView(backBuffer.get(), nullptr, dcompRenderTargetView.put()));
+            DesktopInteropNs::wr::com_ptr<ID3D11Texture2D> backBuffer;
+            DesktopInteropNs::wr::check_hresult(dcompSwapChain->GetBuffer(0, IID_PPV_ARGS(backBuffer.put())));
+            DesktopInteropNs::wr::check_hresult(d3dDevice->CreateRenderTargetView(backBuffer.get(), nullptr, dcompRenderTargetView.put()));
 
-            ns::wr::com_ptr<ID3D11Texture2D> overlayBackBuffer;
-            ns::wr::check_hresult(dcompOverlaySwapChain->GetBuffer(0, IID_PPV_ARGS(overlayBackBuffer.put())));
-            ns::wr::check_hresult(d3dDevice->CreateRenderTargetView(overlayBackBuffer.get(), nullptr, dcompOverlayRenderTargetView.put()));
+            DesktopInteropNs::wr::com_ptr<ID3D11Texture2D> overlayBackBuffer;
+            DesktopInteropNs::wr::check_hresult(dcompOverlaySwapChain->GetBuffer(0, IID_PPV_ARGS(overlayBackBuffer.put())));
+            DesktopInteropNs::wr::check_hresult(d3dDevice->CreateRenderTargetView(overlayBackBuffer.get(), nullptr, dcompOverlayRenderTargetView.put()));
 
             dcompPixelWidth = width;
             dcompPixelHeight = height;
@@ -1467,7 +1467,7 @@ namespace
 
         void HandleResize()
         {
-            if (backend == desktopinterop::DesktopHostBackend::DirectComposition)
+            if (backend == DesktopInterop::DesktopHostBackend::DirectComposition)
             {
                 ResizeDirectCompositionSwapChain();
                 RenderDirectCompositionFrame();
@@ -1492,7 +1492,7 @@ namespace
 
             animationPhase += deltaSeconds;
 
-            if (backend == desktopinterop::DesktopHostBackend::DirectComposition)
+            if (backend == DesktopInterop::DesktopHostBackend::DirectComposition)
             {
                 RenderDirectCompositionFrame();
             }
@@ -1504,7 +1504,7 @@ namespace
         }
 
     private:
-        desktopinterop::DesktopHostBackend backend = desktopinterop::DesktopHostBackend::WinRTComposition;
+        DesktopInterop::DesktopHostBackend backend = DesktopInterop::DesktopHostBackend::WinRTComposition;
         HWND windowHandle = nullptr;
         bool rendererInitialized = false;
         float animationPhase = 0.0f;
@@ -1514,36 +1514,36 @@ namespace
         int surfacePixelHeight = 0;
         bool physicsInitialized = false;
         float ballRadius = 34.0f;
-        ns::wfn::float2 ballPosition{ 180.0f, 180.0f };
-        ns::wfn::float2 ballVelocity{ 300.0f, 220.0f };
+        DesktopInteropNs::wfn::float2 ballPosition{ 180.0f, 180.0f };
+        DesktopInteropNs::wfn::float2 ballVelocity{ 300.0f, 220.0f };
 
-        ns::wuc::Compositor compositor{ nullptr };
-        ns::wud::DesktopWindowTarget compositionTarget{ nullptr };
-        ns::wuc::ContainerVisual rootVisual{ nullptr };
-        ns::wuc::SpriteVisual hostBackdropVisual{ nullptr };
-        ns::wuc::SpriteVisual hostTintVisual{ nullptr };
-        ns::wuc::SpriteVisual surfaceVisual{ nullptr };
-        ns::wuc::CompositionSurfaceBrush surfaceBrush{ nullptr };
-        ns::mgc::CanvasDevice canvasDevice{ nullptr };
-        ns::wuc::CompositionGraphicsDevice compositionGraphicsDevice{ nullptr };
-        ns::wuc::CompositionDrawingSurface drawingSurface{ nullptr };
+        DesktopInteropNs::wuc::Compositor compositor{ nullptr };
+        DesktopInteropNs::wud::DesktopWindowTarget compositionTarget{ nullptr };
+        DesktopInteropNs::wuc::ContainerVisual rootVisual{ nullptr };
+        DesktopInteropNs::wuc::SpriteVisual hostBackdropVisual{ nullptr };
+        DesktopInteropNs::wuc::SpriteVisual hostTintVisual{ nullptr };
+        DesktopInteropNs::wuc::SpriteVisual surfaceVisual{ nullptr };
+        DesktopInteropNs::wuc::CompositionSurfaceBrush surfaceBrush{ nullptr };
+        DesktopInteropNs::mgc::CanvasDevice canvasDevice{ nullptr };
+        DesktopInteropNs::wuc::CompositionGraphicsDevice compositionGraphicsDevice{ nullptr };
+        DesktopInteropNs::wuc::CompositionDrawingSurface drawingSurface{ nullptr };
 
-        ns::wr::com_ptr<ID3D11Device> d3dDevice;
-        ns::wr::com_ptr<ID3D11DeviceContext> d3dContext;
-        ns::wr::com_ptr<IDCompositionDevice> dcompDevice;
-        ns::wr::com_ptr<IDCompositionTarget> dcompTarget;
-        ns::wr::com_ptr<IDCompositionVisual> dcompVisual;
-        ns::wr::com_ptr<IDCompositionVisual> dcompBackgroundVisual;
-        ns::wr::com_ptr<IDCompositionVisual> dcompOverlayVisual;
-        ns::wr::com_ptr<IDXGISwapChain1> dcompSwapChain;
-        ns::wr::com_ptr<IDXGISwapChain1> dcompOverlaySwapChain;
-        ns::wr::com_ptr<ID3D11RenderTargetView> dcompRenderTargetView;
-        ns::wr::com_ptr<ID3D11RenderTargetView> dcompOverlayRenderTargetView;
-        ns::wr::com_ptr<ID3D11VertexShader> dcompVertexShader;
-        ns::wr::com_ptr<ID3D11PixelShader> dcompPixelShader;
-        ns::wr::com_ptr<ID3D11PixelShader> dcompOverlayPixelShader;
-        ns::wr::com_ptr<ID3D11Buffer> dcompConstantBuffer;
-        ns::wr::com_ptr<ID3D11Buffer> dcompOverlayConstantBuffer;
+        DesktopInteropNs::wr::com_ptr<ID3D11Device> d3dDevice;
+        DesktopInteropNs::wr::com_ptr<ID3D11DeviceContext> d3dContext;
+        DesktopInteropNs::wr::com_ptr<IDCompositionDevice> dcompDevice;
+        DesktopInteropNs::wr::com_ptr<IDCompositionTarget> dcompTarget;
+        DesktopInteropNs::wr::com_ptr<IDCompositionVisual> dcompVisual;
+        DesktopInteropNs::wr::com_ptr<IDCompositionVisual> dcompBackgroundVisual;
+        DesktopInteropNs::wr::com_ptr<IDCompositionVisual> dcompOverlayVisual;
+        DesktopInteropNs::wr::com_ptr<IDXGISwapChain1> dcompSwapChain;
+        DesktopInteropNs::wr::com_ptr<IDXGISwapChain1> dcompOverlaySwapChain;
+        DesktopInteropNs::wr::com_ptr<ID3D11RenderTargetView> dcompRenderTargetView;
+        DesktopInteropNs::wr::com_ptr<ID3D11RenderTargetView> dcompOverlayRenderTargetView;
+        DesktopInteropNs::wr::com_ptr<ID3D11VertexShader> dcompVertexShader;
+        DesktopInteropNs::wr::com_ptr<ID3D11PixelShader> dcompPixelShader;
+        DesktopInteropNs::wr::com_ptr<ID3D11PixelShader> dcompOverlayPixelShader;
+        DesktopInteropNs::wr::com_ptr<ID3D11Buffer> dcompConstantBuffer;
+        DesktopInteropNs::wr::com_ptr<ID3D11Buffer> dcompOverlayConstantBuffer;
         UINT dcompPixelWidth = 0;
         UINT dcompPixelHeight = 0;
         bool dcompMouseTracking = false;
@@ -1748,18 +1748,18 @@ namespace
             switch (commandId)
             {
             case kPanelButtonWinRt:
-                CreateHostFromPanel(desktopinterop::DesktopHostBackend::WinRTComposition);
+                CreateHostFromPanel(DesktopInterop::DesktopHostBackend::WinRTComposition);
                 return 0;
             case kPanelButtonWinRtBackdrop:
-                CreateHostFromPanel(desktopinterop::DesktopHostBackend::WinRTHostBackdrop);
+                CreateHostFromPanel(DesktopInterop::DesktopHostBackend::WinRTHostBackdrop);
                 return 0;
             case kPanelButtonDComp:
-                CreateHostFromPanel(desktopinterop::DesktopHostBackend::DirectComposition);
+                CreateHostFromPanel(DesktopInterop::DesktopHostBackend::DirectComposition);
                 return 0;
             case kPanelButtonBoth:
-                CreateHostFromPanel(desktopinterop::DesktopHostBackend::WinRTComposition);
-                CreateHostFromPanel(desktopinterop::DesktopHostBackend::WinRTHostBackdrop);
-                CreateHostFromPanel(desktopinterop::DesktopHostBackend::DirectComposition);
+                CreateHostFromPanel(DesktopInterop::DesktopHostBackend::WinRTComposition);
+                CreateHostFromPanel(DesktopInterop::DesktopHostBackend::WinRTHostBackdrop);
+                CreateHostFromPanel(DesktopInterop::DesktopHostBackend::DirectComposition);
                 return 0;
             default:
                 return 0;
@@ -1798,10 +1798,10 @@ namespace
             }
         }
 
-        void CreateHostFromPanel(desktopinterop::DesktopHostBackend backend) const
+        void CreateHostFromPanel(DesktopInterop::DesktopHostBackend backend) const
         {
             std::wstring errorMessage;
-            if (!desktopinterop::CreateDesktopHostTestWindow(backend, &errorMessage))
+            if (!DesktopInterop::CreateDesktopHostTestWindow(backend, &errorMessage))
             {
                 const std::wstring message = L"Failed to create desktop host window.\n" + errorMessage;
                 ::MessageBoxW(windowHandle, message.c_str(), L"Desktop Host Test", MB_OK | MB_ICONERROR);
@@ -1820,7 +1820,7 @@ namespace
     std::unique_ptr<DesktopHostTestPanelWindow> gDesktopHostTestPanel;
 }
 
-ns::wus::DispatcherQueueController desktopinterop::CreateDispatcherQueueControllerForCurrentThread()
+DesktopInteropNs::wus::DispatcherQueueController DesktopInterop::CreateDispatcherQueueControllerForCurrentThread()
 {
     namespace abi = ABI::Windows::System;
 
@@ -1831,20 +1831,20 @@ ns::wus::DispatcherQueueController desktopinterop::CreateDispatcherQueueControll
         DQTAT_COM_STA
     };
 
-    ns::wus::DispatcherQueueController controller{ nullptr };
-    ns::wr::check_hresult(::CreateDispatcherQueueController(
+    DesktopInteropNs::wus::DispatcherQueueController controller{ nullptr };
+    DesktopInteropNs::wr::check_hresult(::CreateDispatcherQueueController(
         options,
-        reinterpret_cast<abi::IDispatcherQueueController**>(ns::wr::put_abi(controller))));
+        reinterpret_cast<abi::IDispatcherQueueController**>(DesktopInteropNs::wr::put_abi(controller))));
     return controller;
 }
 
-ns::wus::DispatcherQueueController desktopinterop::EnsureDispatcherQueueControllerForCurrentThread()
+DesktopInteropNs::wus::DispatcherQueueController DesktopInterop::EnsureDispatcherQueueControllerForCurrentThread()
 {
-    if (ns::wus::DispatcherQueue::GetForCurrentThread() != nullptr)
+    if (DesktopInteropNs::wus::DispatcherQueue::GetForCurrentThread() != nullptr)
     {
         if (!gDispatcherQueueController.has_value())
         {
-            return ns::wus::DispatcherQueueController{ nullptr };
+            return DesktopInteropNs::wus::DispatcherQueueController{ nullptr };
         }
 
         return *gDispatcherQueueController;
@@ -1854,7 +1854,7 @@ ns::wus::DispatcherQueueController desktopinterop::EnsureDispatcherQueueControll
     return *gDispatcherQueueController;
 }
 
-bool desktopinterop::CreateDesktopHostTestWindow(DesktopHostBackend backend, std::wstring* errorMessage)
+bool DesktopInterop::CreateDesktopHostTestWindow(DesktopHostBackend backend, std::wstring* errorMessage)
 {
     auto hostWindow = std::make_unique<DesktopHostWindow>(backend);
     if (!hostWindow->CreateWindowInstance(errorMessage))
@@ -1875,7 +1875,7 @@ bool desktopinterop::CreateDesktopHostTestWindow(DesktopHostBackend backend, std
     return true;
 }
 
-void desktopinterop::ShowDesktopHostTestPanel(HWND ownerWindow)
+void DesktopInterop::ShowDesktopHostTestPanel(HWND ownerWindow)
 {
     if (gDesktopHostTestPanel != nullptr && gDesktopHostTestPanel->IsWindow())
     {

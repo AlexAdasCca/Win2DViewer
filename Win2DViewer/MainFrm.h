@@ -71,6 +71,6 @@ private:
     CWin2DView view;
     bool consoleDebugEnabled = false;
     bool isWindowTopMost = false;
-    systemmenu::MenuHost systemMenuHost{ L"MainFrame.SystemMenu" };
+    SystemMenu::MenuHost systemMenuHost{ L"MainFrame.SystemMenu" };
 };
 
