@@ -23,6 +23,7 @@ public:
         MESSAGE_HANDLER(WM_DROPFILES, OnDropFiles)
         MESSAGE_HANDLER(WM_INITMENUPOPUP, OnInitMenuPopup)
         MESSAGE_HANDLER(WM_SYSCOMMAND, OnSysCommand)
+        MESSAGE_HANDLER(kConsoleDebugStateSyncMsg, OnConsoleDebugStateSync)
         COMMAND_ID_HANDLER(ID_FILE_NEW, OnFileNew)
         COMMAND_ID_HANDLER(ID_FILE_OPEN, OnFileOpen)
         COMMAND_ID_HANDLER(ID_APP_EXIT, OnFileExit)
@@ -52,6 +53,7 @@ private:
     LRESULT OnDropFiles(UINT, WPARAM, LPARAM, BOOL&);
     LRESULT OnInitMenuPopup(UINT, WPARAM, LPARAM, BOOL&);
     LRESULT OnSysCommand(UINT, WPARAM, LPARAM, BOOL&);
+    LRESULT OnConsoleDebugStateSync(UINT, WPARAM, LPARAM, BOOL&);
     LRESULT OnFileNew(WORD, WORD, HWND, BOOL&);
     LRESULT OnFileOpen(WORD, WORD, HWND, BOOL&);
     LRESULT OnFileExit(WORD, WORD, HWND, BOOL&);

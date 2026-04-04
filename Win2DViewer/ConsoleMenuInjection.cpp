@@ -17,6 +17,12 @@ namespace
     using NtGetNextProcessFn = NTSTATUS(NTAPI*)(HANDLE, ACCESS_MASK, ULONG, ULONG, PHANDLE);
     using NtCreateThreadExFn = NTSTATUS(NTAPI*)(PHANDLE, ACCESS_MASK, POBJECT_ATTRIBUTES, HANDLE, PVOID, PVOID, ULONG, SIZE_T, SIZE_T, SIZE_T, PVOID);
     using NtQueryInformationProcessFn = NTSTATUS(NTAPI*)(HANDLE, PROCESSINFOCLASS, PVOID, ULONG, PULONG);
+    constexpr ACCESS_MASK kInjectionAccess =
+        PROCESS_CREATE_THREAD | PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_OPERATION | PROCESS_VM_WRITE | PROCESS_VM_READ;
+    constexpr ACCESS_MASK kEnumerationAccess = PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ;
+    constexpr ULONG kProcessGetNextFlagsPreviousProcess = 0x1;
+    constexpr PROCESSINFOCLASS kProcessConsoleHostProcessClass = static_cast<PROCESSINFOCLASS>(49);
+    constexpr ULONG_PTR kProcessConsoleHostPidMask = ~static_cast<ULONG_PTR>(3);
 
     struct UnicodeString32
     {
@@ -236,13 +242,50 @@ namespace
         return true;
     }
 
-    bool IsCurrentConsoleHostProcess(HANDLE processHandle, NtQueryInformationProcessFn ntQueryInformationProcess)
+    bool TryQueryBasicProcessInfo(HANDLE processHandle, NtQueryInformationProcessFn ntQueryInformationProcess, ProcessBasicInformationData& info)
     {
-        ProcessBasicInformationData info{};
+        info = {};
         const NTSTATUS queryStatus = ntQueryInformationProcess(processHandle, ProcessBasicInformation, &info, sizeof(info), nullptr);
         if (!NT_SUCCESS(queryStatus))
         {
             LogLine(L"[ConsoleMenuInjection] NtQueryInformationProcess(ProcessBasicInformation) failed: " + FormatNtStatus(queryStatus));
+            return false;
+        }
+        return true;
+    }
+
+    bool IsConhostImagePath(HANDLE processHandle, std::wstring* imagePathOut = nullptr)
+    {
+        wchar_t queryImagePath[MAX_PATH]{};
+        DWORD imagePathSize = _countof(queryImagePath);
+        if (!::QueryFullProcessImageNameW(processHandle, 0, queryImagePath, &imagePathSize))
+        {
+            return false;
+        }
+
+        if (imagePathOut != nullptr)
+        {
+            *imagePathOut = queryImagePath;
+        }
+        return EndsWithInsensitive(queryImagePath, L"\\conhost.exe");
+    }
+
+    bool IsCurrentConsoleHostProcess(HANDLE processHandle, NtQueryInformationProcessFn ntQueryInformationProcess)
+    {
+        ProcessBasicInformationData info{};
+        if (!TryQueryBasicProcessInfo(processHandle, ntQueryInformationProcess, info))
+        {
+            return false;
+        }
+
+        if (static_cast<DWORD>(info.InheritedFromUniqueProcessId) != ::GetCurrentProcessId())
+        {
+            return false;
+        }
+
+        std::wstring queryImagePath;
+        if (!IsConhostImagePath(processHandle, &queryImagePath))
+        {
             return false;
         }
 
@@ -256,34 +299,9 @@ namespace
         diagnosticconsole::LineBuilder line;
         line << L"[ConsoleMenuInjection] Candidate pid=" << ::GetProcessId(processHandle)
              << L" parent=" << static_cast<DWORD>(info.InheritedFromUniqueProcessId)
-             << L" image=" << imagePath
+             << L" image=" << (!imagePath.empty() ? imagePath : queryImagePath)
              << L" cmd=" << commandLine;
         LogLine(line.str());
-
-        if (static_cast<DWORD>(info.InheritedFromUniqueProcessId) != ::GetCurrentProcessId())
-        {
-            return false;
-        }
-
-        bool imageMatchesConhost = false;
-        if (!imagePath.empty())
-        {
-            imageMatchesConhost = EndsWithInsensitive(imagePath, L"\\conhost.exe");
-        }
-        else
-        {
-            wchar_t queryImagePath[MAX_PATH]{};
-            DWORD imagePathSize = _countof(queryImagePath);
-            if (::QueryFullProcessImageNameW(processHandle, 0, queryImagePath, &imagePathSize))
-            {
-                imageMatchesConhost = EndsWithInsensitive(queryImagePath, L"\\conhost.exe");
-            }
-        }
-
-        if (!imageMatchesConhost)
-        {
-            return false;
-        }
 
         if (!commandLine.empty())
         {
@@ -297,6 +315,67 @@ namespace
         }
 
         return true;
+    }
+
+    HANDLE TryFindConsoleHostProcessViaProcessInfoClass(NtQueryInformationProcessFn ntQueryInformationProcess)
+    {
+        ULONG_PTR rawConsoleHost = 0;
+        const NTSTATUS status = ntQueryInformationProcess(
+            ::GetCurrentProcess(),
+            kProcessConsoleHostProcessClass,
+            &rawConsoleHost,
+            sizeof(rawConsoleHost),
+            nullptr);
+        if (!NT_SUCCESS(status) || rawConsoleHost == 0)
+        {
+            std::wstringstream ss;
+            ss << L"[ConsoleMenuInjection] ProcessConsoleHostProcess query failed, status="
+               << FormatNtStatus(status)
+               << L" raw=0x" << std::hex << rawConsoleHost;
+            LogLine(ss.str());
+            return nullptr;
+        }
+
+        const DWORD hostPid = static_cast<DWORD>(rawConsoleHost & kProcessConsoleHostPidMask);
+        std::wstringstream pidLine;
+        pidLine << L"[ConsoleMenuInjection] ProcessConsoleHostProcess raw=0x"
+                << std::hex << rawConsoleHost
+                << L" maskedPid=" << std::dec << hostPid;
+        LogLine(pidLine.str());
+        if (hostPid == 0)
+        {
+            return nullptr;
+        }
+
+        HANDLE verifyHandle = ::OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, hostPid);
+        if (verifyHandle == nullptr)
+        {
+            return nullptr;
+        }
+
+        ProcessBasicInformationData info{};
+        const bool hasBasicInfo = TryQueryBasicProcessInfo(verifyHandle, ntQueryInformationProcess, info);
+        const bool isChildProcess = hasBasicInfo && static_cast<DWORD>(info.InheritedFromUniqueProcessId) == ::GetCurrentProcessId();
+        const bool isConhostImage = IsConhostImagePath(verifyHandle);
+        ::CloseHandle(verifyHandle);
+
+        if (!isChildProcess || !isConhostImage)
+        {
+            LogLine(L"[ConsoleMenuInjection] ProcessConsoleHostProcess candidate rejected by child/image validation.");
+            return nullptr;
+        }
+
+        HANDLE injectHandle = ::OpenProcess(kInjectionAccess, FALSE, hostPid);
+        if (injectHandle == nullptr)
+        {
+            std::wstringstream ss;
+            ss << L"[ConsoleMenuInjection] OpenProcess(injection) failed for hostPid=" << hostPid
+               << L" gle=" << ::GetLastError();
+            LogLine(ss.str());
+            return nullptr;
+        }
+
+        return injectHandle;
     }
 
     HANDLE FindCurrentConsoleHostProcess()
@@ -315,20 +394,56 @@ namespace
             return nullptr;
         }
 
-        HANDLE processHandle = nullptr;
-        while (NT_SUCCESS(ntGetNextProcess(processHandle,
-            PROCESS_CREATE_THREAD | PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_OPERATION | PROCESS_VM_WRITE | PROCESS_VM_READ,
-            0,
-            0,
-            &processHandle)))
+        if (HANDLE directHostProcess = TryFindConsoleHostProcessViaProcessInfoClass(ntQueryInformationProcess))
         {
-            if (IsCurrentConsoleHostProcess(processHandle, ntQueryInformationProcess))
+            std::wstringstream ss;
+            ss << L"[ConsoleMenuInjection] Matched conhost via ProcessConsoleHostProcess, pid="
+               << ::GetProcessId(directHostProcess);
+            LogLine(ss.str());
+            return directHostProcess;
+        }
+
+        HANDLE currentHandle = nullptr;
+        while (true)
+        {
+            HANDLE nextHandle = nullptr;
+            const NTSTATUS nextStatus = ntGetNextProcess(
+                currentHandle,
+                kEnumerationAccess,
+                0,
+                kProcessGetNextFlagsPreviousProcess,
+                &nextHandle);
+
+            if (currentHandle != nullptr)
             {
-                std::wstringstream ss;
-                ss << L"[ConsoleMenuInjection] Matched conhost pid=" << ::GetProcessId(processHandle);
-                LogLine(ss.str());
-                return processHandle;
+                ::CloseHandle(currentHandle);
+                currentHandle = nullptr;
             }
+
+            if (!NT_SUCCESS(nextStatus))
+            {
+                break;
+            }
+
+            currentHandle = nextHandle;
+            if (IsCurrentConsoleHostProcess(currentHandle, ntQueryInformationProcess))
+            {
+                const DWORD matchedPid = ::GetProcessId(currentHandle);
+                HANDLE injectHandle = ::OpenProcess(kInjectionAccess, FALSE, matchedPid);
+                if (injectHandle != nullptr)
+                {
+                    std::wstringstream ss;
+                    ss << L"[ConsoleMenuInjection] Matched conhost via fallback enumeration pid=" << matchedPid;
+                    LogLine(ss.str());
+                    ::CloseHandle(currentHandle);
+                    return injectHandle;
+                }
+            }
+        }
+
+        if (currentHandle != nullptr)
+        {
+            ::CloseHandle(currentHandle);
         }
 
         LogLine(L"[ConsoleMenuInjection] No matching conhost process was found.");

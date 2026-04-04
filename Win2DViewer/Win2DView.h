@@ -16,6 +16,8 @@
 
 #include "devicelost.h"
 
+constexpr UINT kConsoleDebugStateSyncMsg = WM_APP + 0x58;
+
 class CWin2DView
     : public CWindowImpl<CWin2DView>
     , public CMyScrollView

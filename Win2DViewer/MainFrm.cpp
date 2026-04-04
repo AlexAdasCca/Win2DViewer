@@ -174,6 +174,7 @@ LRESULT CMainFrame::OnInitMenuPopup(UINT, WPARAM wParam, LPARAM, BOOL&)
     HMENU menuHandle = reinterpret_cast<HMENU>(wParam);
     if (menuHandle != nullptr)
     {
+        UpdateLayerMenuState();
         UpdateSystemMenuState(menuHandle);
     }
 
@@ -189,6 +190,20 @@ LRESULT CMainFrame::OnSysCommand(UINT, WPARAM wParam, LPARAM, BOOL& bHandled)
     }
 
     bHandled = FALSE;
+    return 0;
+}
+
+LRESULT CMainFrame::OnConsoleDebugStateSync(UINT, WPARAM wParam, LPARAM, BOOL&)
+{
+    const bool enabled = wParam != 0;
+    if (view.IsConsoleDebugEnabled() != enabled)
+    {
+        view.SetConsoleDebugEnabled(enabled);
+    }
+
+    consoleDebugEnabled = view.IsConsoleDebugEnabled();
+    UpdateLayerMenuState();
+    ::DrawMenuBar(m_hWnd);
     return 0;
 }
 
@@ -412,6 +427,7 @@ void CMainFrame::UpdateLayerMenuState()
         selectedId,
         MF_BYCOMMAND);
 
+    consoleDebugEnabled = view.IsConsoleDebugEnabled();
     ::CheckMenuItem(
         menuHandle,
         ID_VIEW_CONSOLE_DEBUG,
