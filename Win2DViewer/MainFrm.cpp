@@ -13,31 +13,13 @@ namespace
 {
     constexpr wchar_t kSvgFilter[] = L"SVG Files (*.svg)\0*.svg\0All Files (*.*)\0*.*\0";
 
-#ifndef DWMWA_SYSTEMBACKDROP_TYPE
-    constexpr DWORD kDwmAttrSystemBackdropType = 38;
-#else
-    constexpr DWORD kDwmAttrSystemBackdropType = static_cast<DWORD>(DWMWA_SYSTEMBACKDROP_TYPE);
-#endif
-#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
-    constexpr DWORD kDwmAttrImmersiveDarkMode = 20;
-#else
-    constexpr DWORD kDwmAttrImmersiveDarkMode = static_cast<DWORD>(DWMWA_USE_IMMERSIVE_DARK_MODE);
-#endif
-#ifndef DWMWA_USE_HOSTBACKDROPBRUSH
-    constexpr DWORD kDwmAttrUseHostBackdropBrush = 17;
-#else
-    constexpr DWORD kDwmAttrUseHostBackdropBrush = static_cast<DWORD>(DWMWA_USE_HOSTBACKDROPBRUSH);
-#endif
-#ifndef DWMSBT_MAINWINDOW
-    constexpr DWORD kDwmBackdropMainWindow = 2;
-#else
-    constexpr DWORD kDwmBackdropMainWindow = static_cast<DWORD>(DWMSBT_MAINWINDOW);
-#endif
-#ifndef DWMSBT_TRANSIENTWINDOW
-    constexpr DWORD kDwmBackdropTransientWindow = 3;
-#else
-    constexpr DWORD kDwmBackdropTransientWindow = static_cast<DWORD>(DWMSBT_TRANSIENTWINDOW);
-#endif
+    // Source: Windows SDK <dwmapi.h>, enums DWMWINDOWATTRIBUTE and
+    // DWM_SYSTEMBACKDROP_TYPE (enum members).
+    constexpr DWORD kDwmAttrSystemBackdropType   = 38;    // DWMWA_SYSTEMBACKDROP_TYPE
+    constexpr DWORD kDwmAttrImmersiveDarkMode    = 20;    // DWMWA_USE_IMMERSIVE_DARK_MODE
+    constexpr DWORD kDwmAttrUseHostBackdropBrush = 17;    // DWMWA_USE_HOSTBACKDROPBRUSH
+    constexpr DWORD kDwmBackdropMainWindow       = 2;     // DWMSBT_MAINWINDOW
+    constexpr DWORD kDwmBackdropTransientWindow  = 3;     // DWMSBT_TRANSIENTWINDOW
 
     std::optional<std::wstring> BrowseForSvgFile(HWND owner)
     {
