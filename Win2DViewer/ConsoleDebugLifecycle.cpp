@@ -67,39 +67,39 @@ namespace ConsoleDebugLifecycle
         {
             switch (ctrlType)
             {
-            case CTRL_C_EVENT:
-            case CTRL_BREAK_EVENT:
-                // Returning TRUE here consumes the keyboard control event for this process,
-                // so the default console handler does not terminate the process.
-                //
-                // References:
-                // https://learn.microsoft.com/windows/console/handlerroutine
-                // https://learn.microsoft.com/windows/console/setconsolectrlhandler
-                DiagnosticConsole::WriteLine(
-                    L"[ConsoleDebug] Ctrl+C/Ctrl+Break is blocked in debug-console mode. "
-                    L"Use interactive window close instead.");
-                return TRUE;
+                case CTRL_C_EVENT:
+                case CTRL_BREAK_EVENT:
+                    // Returning TRUE here consumes the keyboard control event for this process,
+                    // so the default console handler does not terminate the process.
+                    //
+                    // References:
+                    // https://learn.microsoft.com/windows/console/handlerroutine
+                    // https://learn.microsoft.com/windows/console/setconsolectrlhandler
+                    DiagnosticConsole::WriteLine(
+                        L"[ConsoleDebug] Ctrl+C/Ctrl+Break is blocked in debug-console mode. "
+                        L"Use interactive window close instead.");
+                    return TRUE;
 
-            case CTRL_CLOSE_EVENT:
-            case CTRL_LOGOFF_EVENT:
-            case CTRL_SHUTDOWN_EVENT:
-                // Close/logoff/shutdown notifications are best-effort cleanup signals.
-                // Returning TRUE requests handling, but Windows can still terminate the
-                // process afterward. We therefore trigger fallback cleanup immediately.
-                if (gConsoleCtrlFallbackEvent != nullptr)
-                {
-                    (void)::SetEvent(gConsoleCtrlFallbackEvent);
-                }
-                return TRUE;
+                case CTRL_CLOSE_EVENT:
+                case CTRL_LOGOFF_EVENT:
+                case CTRL_SHUTDOWN_EVENT:
+                    // Close/logoff/shutdown notifications are best-effort cleanup signals.
+                    // Returning TRUE requests handling, but Windows can still terminate the
+                    // process afterward. We therefore trigger fallback cleanup immediately.
+                    if (gConsoleCtrlFallbackEvent != nullptr)
+                    {
+                        (void)::SetEvent(gConsoleCtrlFallbackEvent);
+                    }
+                    return TRUE;
 
-            default:
-                return FALSE;
+                default:
+                    return FALSE;
             }
         }
 
         DWORD WINAPI ConsoleCloseMonitorThreadProc(LPVOID)
         {
-            HANDLE waits[] = { gConsoleMonitorStopEvent, gConsoleCloseNotifyEvent, gConsoleCtrlFallbackEvent };
+            HANDLE waits[] = {gConsoleMonitorStopEvent, gConsoleCloseNotifyEvent, gConsoleCtrlFallbackEvent};
             for (;;)
             {
                 const DWORD waitResult = ::WaitForMultipleObjects(_countof(waits), waits, FALSE, INFINITE);
@@ -192,7 +192,7 @@ namespace ConsoleDebugLifecycle
                 gConsoleCtrlFallbackEvent = nullptr;
             }
         }
-    }
+    } // namespace
 
     void SetStateSyncTargetWindow(HWND targetWindow)
     {
@@ -259,4 +259,4 @@ namespace ConsoleDebugLifecycle
 
         DiagnosticConsole::WriteLine(line);
     }
-}
+} // namespace ConsoleDebugLifecycle

@@ -12,4 +12,4 @@ namespace ConsoleMenuHook
     void TryIntegrateConsoleWindow(HWND windowHandle, std::wstring const& source);
     DWORD WINAPI WindowDiscoveryThreadProc(LPVOID);
     void RestoreOriginalWindowProcedureIfNeeded();
-}
+} // namespace ConsoleMenuHook

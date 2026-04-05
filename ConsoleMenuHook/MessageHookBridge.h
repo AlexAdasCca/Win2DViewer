@@ -7,4 +7,4 @@ namespace ConsoleMenuHook
 
     bool InstallMessageQuitHooks();
     void RemoveMessageQuitHooks();
-}
+} // namespace ConsoleMenuHook

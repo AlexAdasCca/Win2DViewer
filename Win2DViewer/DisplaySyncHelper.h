@@ -2,13 +2,11 @@
 
 struct DisplaySyncHelper
 {
-	DisplaySyncHelper();
-	~DisplaySyncHelper();
+    DisplaySyncHelper();
+    ~DisplaySyncHelper();
 
-	void WaitForVSync();
-	void Initialize();
+    void WaitForVSync();
+    void Initialize();
 
-	DWORD GetFrequency();
-
+    DWORD GetFrequency();
 };
-

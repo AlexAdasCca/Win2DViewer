@@ -29,7 +29,7 @@ namespace ConsoleMenuHook
         };
 
         RuntimeState gRuntimeState{};
-    }
+    } // namespace
 
     RuntimeState& GetRuntimeState()
     {
@@ -166,4 +166,4 @@ namespace ConsoleMenuHook
         gRuntimeState.ConsoleIntegrateInProgress.store(false);
         gRuntimeState.ConsoleCloseNotified.store(false);
     }
-}
+} // namespace ConsoleMenuHook

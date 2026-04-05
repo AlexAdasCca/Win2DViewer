@@ -1,17 +1,26 @@
-#pragma once
+﻿#pragma once
 
 using UpdatePanningFeedbackFn = BOOL(WINAPI*)(HWND, LONG, LONG, BOOL);
 
 class CMyScrollView
 {
-public:
+  public:
     CMyScrollView();
     virtual ~CMyScrollView() = default;
 
-    void AttachScrollWindow(HWND hwnd) noexcept { scrollHwnd = hwnd; }
+    void AttachScrollWindow(HWND hwnd) noexcept
+    {
+        scrollHwnd = hwnd;
+    }
 
-    CPoint GetScrollPosition() const noexcept { return currentScrollPos; }
-    CSize GetTotalSize() const noexcept { return totalSize; }
+    CPoint GetScrollPosition() const noexcept
+    {
+        return currentScrollPos;
+    }
+    CSize GetTotalSize() const noexcept
+    {
+        return totalSize;
+    }
 
     void SetScrollSizes(int mapMode, SIZE sizeTotal);
     void ScrollToPosition(POINT pt);
@@ -23,25 +32,32 @@ public:
     void CheckScrollBars(BOOL& hasHorizontal, BOOL& hasVertical) const;
     void UpdateScrollMetrics();
 
-protected:
-    virtual void DrawClientRect(RECT& rect) {}
-    virtual void OnScrollPositionChanging(CPoint oldPos, CPoint newPos) {}
+  protected:
+    virtual void DrawClientRect(RECT& rect)
+    {
+    }
+    virtual void OnScrollPositionChanging(CPoint oldPos, CPoint newPos)
+    {
+    }
 
-    HWND ScrollHwnd() const noexcept { return scrollHwnd; }
+    HWND ScrollHwnd() const noexcept
+    {
+        return scrollHwnd;
+    }
     CPoint ClampScrollPosition(CPoint pt) const;
 
-private:
+  private:
     BOOL HandleScroll(UINT bar, UINT scrollCode, UINT scrollPos, BOOL bDoScroll);
     void ScrollToDevicePosition(POINT pt);
     void DoNoScrollUpdate(int dx, int dy);
     void UpdateScrollBar(UINT bar);
 
-private:
+  private:
     HWND scrollHwnd = nullptr;
-    CPoint currentScrollPos{ 0, 0 };
-    CSize totalSize{ 0, 0 };
-    CSize pageDev{ 0, 0 };
-    CSize lineDev{ 1, 1 };
+    CPoint currentScrollPos{0, 0};
+    CSize totalSize{0, 0};
+    CSize pageDev{0, 0};
+    CSize lineDev{1, 1};
     wil::unique_hmodule themeModule;
     UpdatePanningFeedbackFn updatePanningFeedback = nullptr;
 };

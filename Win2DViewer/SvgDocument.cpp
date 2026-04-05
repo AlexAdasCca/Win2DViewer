@@ -35,7 +35,7 @@ namespace
 
         return message;
     }
-}
+} // namespace
 
 bool CSvgDocument::LoadFromFile(std::wstring_view path, std::wstring* errorMessage)
 {
@@ -49,8 +49,7 @@ bool CSvgDocument::LoadFromFile(std::wstring_view path, std::wstring* errorMessa
             nullptr,
             OPEN_EXISTING,
             FILE_ATTRIBUTE_NORMAL,
-            nullptr)
-    };
+            nullptr)};
 
     if (!file)
     {
@@ -117,4 +116,3 @@ void CSvgDocument::Clear() noexcept
     svgXmlBytes.clear();
     documentPath.clear();
 }
-

@@ -1,0 +1,18 @@
+---
+BasedOnStyle: Microsoft
+IndentWidth: 4
+ContinuationIndentWidth: 4
+TabWidth: 4
+UseTab: Never
+BreakBeforeBraces: Allman
+ColumnLimit: 0
+IndentCaseLabels: true
+NamespaceIndentation: All
+SortIncludes: false
+DerivePointerAlignment: false
+PointerAlignment: Left
+ReferenceAlignment: Left
+LambdaBodyIndentation: OuterScope
+AllowShortBlocksOnASingleLine: Never
+AllowShortFunctionsOnASingleLine: None
+...

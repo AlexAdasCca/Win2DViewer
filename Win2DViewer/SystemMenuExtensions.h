@@ -29,21 +29,21 @@ namespace SystemMenu
         {
             switch (virtualKey)
             {
-            case 0:
-            case VK_CONTROL:
-            case VK_MENU:
-            case VK_SHIFT:
-            case VK_LCONTROL:
-            case VK_RCONTROL:
-            case VK_LMENU:
-            case VK_RMENU:
-            case VK_LSHIFT:
-            case VK_RSHIFT:
-            case VK_LWIN:
-            case VK_RWIN:
-                return false;
-            default:
-                return true;
+                case 0:
+                case VK_CONTROL:
+                case VK_MENU:
+                case VK_SHIFT:
+                case VK_LCONTROL:
+                case VK_RCONTROL:
+                case VK_LMENU:
+                case VK_RMENU:
+                case VK_LSHIFT:
+                case VK_RSHIFT:
+                case VK_LWIN:
+                case VK_RWIN:
+                    return false;
+                default:
+                    return true;
             }
         }
 
@@ -85,18 +85,36 @@ namespace SystemMenu
 
             switch (virtualKey)
             {
-            case VK_INSERT: text += L"Insert"; break;
-            case VK_DELETE: text += L"Delete"; break;
-            case VK_HOME: text += L"Home"; break;
-            case VK_END: text += L"End"; break;
-            case VK_PRIOR: text += L"PageUp"; break;
-            case VK_NEXT: text += L"PageDown"; break;
-            case VK_SPACE: text += L"Space"; break;
-            case VK_RETURN: text += L"Enter"; break;
-            case VK_TAB: text += L"Tab"; break;
-            default:
-                text += L"VK_" + std::to_wstring(virtualKey);
-                break;
+                case VK_INSERT:
+                    text += L"Insert";
+                    break;
+                case VK_DELETE:
+                    text += L"Delete";
+                    break;
+                case VK_HOME:
+                    text += L"Home";
+                    break;
+                case VK_END:
+                    text += L"End";
+                    break;
+                case VK_PRIOR:
+                    text += L"PageUp";
+                    break;
+                case VK_NEXT:
+                    text += L"PageDown";
+                    break;
+                case VK_SPACE:
+                    text += L"Space";
+                    break;
+                case VK_RETURN:
+                    text += L"Enter";
+                    break;
+                case VK_TAB:
+                    text += L"Tab";
+                    break;
+                default:
+                    text += L"VK_" + std::to_wstring(virtualKey);
+                    break;
             }
 
             return text;
@@ -105,10 +123,14 @@ namespace SystemMenu
         std::wstring ToNormalizedKey() const
         {
             std::wstring text;
-            if (ctrl) text += L"ctrl+";
-            if (alt) text += L"alt+";
-            if (shift) text += L"shift+";
-            if (win) text += L"win+";
+            if (ctrl)
+                text += L"ctrl+";
+            if (alt)
+                text += L"alt+";
+            if (shift)
+                text += L"shift+";
+            if (win)
+                text += L"win+";
             text += std::to_wstring(virtualKey);
             return text;
         }
@@ -136,9 +158,9 @@ namespace SystemMenu
             const bool winPressed = IsPressed(VK_LWIN) || IsPressed(VK_RWIN);
 
             return ctrlPressed == ctrl &&
-                altPressed == alt &&
-                shiftPressed == shift &&
-                winPressed == win;
+                   altPressed == alt &&
+                   shiftPressed == shift &&
+                   winPressed == win;
         }
     };
 
@@ -171,11 +193,11 @@ namespace SystemMenu
             std::transform(text.begin(), text.end(), text.begin(), towlower);
             return text;
         }
-    }
+    } // namespace Internal
 
     class MenuHost
     {
-    public:
+      public:
         explicit MenuHost(std::wstring scopeName)
             : scopeName_(std::move(scopeName))
         {
@@ -233,7 +255,8 @@ namespace SystemMenu
 
         bool RemoveItem(UINT_PTR id)
         {
-            auto it = std::find_if(items_.begin(), items_.end(), [&](MenuItemSpec const& item) { return item.id == id; });
+            auto it = std::find_if(items_.begin(), items_.end(), [&](MenuItemSpec const& item)
+            { return item.id == id; });
             if (it == items_.end())
             {
                 return false;
@@ -245,13 +268,15 @@ namespace SystemMenu
 
         MenuItemSpec* FindItem(UINT_PTR id)
         {
-            auto it = std::find_if(items_.begin(), items_.end(), [&](MenuItemSpec& item) { return item.id == id; });
+            auto it = std::find_if(items_.begin(), items_.end(), [&](MenuItemSpec& item)
+            { return item.id == id; });
             return it != items_.end() ? &(*it) : nullptr;
         }
 
         MenuItemSpec const* FindItem(UINT_PTR id) const
         {
-            auto it = std::find_if(items_.begin(), items_.end(), [&](MenuItemSpec const& item) { return item.id == id; });
+            auto it = std::find_if(items_.begin(), items_.end(), [&](MenuItemSpec const& item)
+            { return item.id == id; });
             return it != items_.end() ? &(*it) : nullptr;
         }
 
@@ -397,7 +422,7 @@ namespace SystemMenu
             return false;
         }
 
-    private:
+      private:
         std::wstring BuildMenuText(MenuItemSpec const& item) const
         {
             std::wstring text = item.text;
@@ -506,7 +531,7 @@ namespace SystemMenu
                     return false;
                 }
 
-                Internal::gShortcutRegistry[key] = Internal::RegisteredShortcut{ scopeName_, item.id, item.text };
+                Internal::gShortcutRegistry[key] = Internal::RegisteredShortcut{scopeName_, item.id, item.text};
                 registeredShortcutKeys_.push_back(key);
             }
 
@@ -527,10 +552,10 @@ namespace SystemMenu
             registeredShortcutKeys_.clear();
         }
 
-    private:
+      private:
         std::wstring scopeName_;
         std::vector<MenuItemSpec> items_;
         mutable std::vector<std::wstring> itemTexts_;
         std::vector<std::wstring> registeredShortcutKeys_;
     };
-}
+} // namespace SystemMenu

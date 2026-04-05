@@ -13,14 +13,14 @@ namespace ConsoleMenuHook
 
     struct RuntimeState
     {
-        std::atomic<HWND> ConsoleWindow{ nullptr };
+        std::atomic<HWND> ConsoleWindow{nullptr};
         bool ConsoleWindowTopMost = false;
         HANDLE InitThread = nullptr;
-        SystemMenu::MenuHost ConsoleMenuHost{ L"Conhost.SystemMenu" };
+        SystemMenu::MenuHost ConsoleMenuHost{L"Conhost.SystemMenu"};
         std::atomic_bool ConsoleMenuInstalled = false;
         std::atomic_bool ConsoleWindowSubclassed = false;
         std::atomic_bool ConsoleIntegrateInProgress = false;
-        std::atomic<WNDPROC> ConsoleWindowOriginalWndProc{ nullptr };
+        std::atomic<WNDPROC> ConsoleWindowOriginalWndProc{nullptr};
         std::atomic_bool ConsoleCloseNotified = false;
         HANDLE DiscoveryStopEvent = nullptr;
         HANDLE DiscoveryThread = nullptr;
@@ -38,4 +38,4 @@ namespace ConsoleMenuHook
     void NotifyOwnerConsoleClose(std::wstring const& source);
     void CaptureConsoleWindow(HWND windowHandle);
     void ResetWindowIntegrationStateAfterDestroy();
-}
+} // namespace ConsoleMenuHook

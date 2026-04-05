@@ -159,7 +159,7 @@ namespace
         return true;
     }
 
-    template<typename AddressType>
+    template <typename AddressType>
     bool ReadRemoteUnicodeString(HANDLE processHandle, AddressType remoteAddress, USHORT byteLength, std::wstring& text)
     {
         if (remoteAddress == 0 || byteLength == 0)
@@ -171,11 +171,11 @@ namespace
         std::vector<wchar_t> buffer((byteLength / sizeof(wchar_t)) + 1, L'\0');
         SIZE_T bytesRead = 0;
         if (!::ReadProcessMemory(
-            processHandle,
-            reinterpret_cast<LPCVOID>(static_cast<ULONG_PTR>(remoteAddress)),
-            buffer.data(),
-            byteLength,
-            &bytesRead))
+                processHandle,
+                reinterpret_cast<LPCVOID>(static_cast<ULONG_PTR>(remoteAddress)),
+                buffer.data(),
+                byteLength,
+                &bytesRead))
         {
             return false;
         }
@@ -195,11 +195,12 @@ namespace
 
         ULONG_PTR wow64Peb = 0;
         if (NT_SUCCESS(ntQueryInformationProcess(
-            processHandle,
-            ProcessWow64Information,
-            &wow64Peb,
-            sizeof(wow64Peb),
-            nullptr)) && wow64Peb != 0)
+                processHandle,
+                ProcessWow64Information,
+                &wow64Peb,
+                sizeof(wow64Peb),
+                nullptr)) &&
+            wow64Peb != 0)
         {
             PebPartial32 peb32{};
             if (!::ReadProcessMemory(processHandle, reinterpret_cast<LPCVOID>(wow64Peb), &peb32, sizeof(peb32), nullptr))
@@ -575,7 +576,7 @@ namespace
         ::VirtualFreeEx(processHandle, remoteBuffer, 0, MEM_RELEASE);
         return success;
     }
-}
+} // namespace
 
 bool ConsoleMenu::EnsureConsoleHookInjected()
 {
@@ -632,7 +633,7 @@ namespace
         gInjectionInProgress.store(false);
         return injected ? 0 : 1;
     }
-}
+} // namespace
 
 void ConsoleMenu::BeginConsoleHookInjectionAsync()
 {

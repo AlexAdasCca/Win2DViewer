@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <windows.h>
 
@@ -10,8 +10,8 @@ namespace DiagnosticConsole
 {
     class LineBuilder
     {
-    public:
-        template<typename T>
+      public:
+        template <typename T>
         LineBuilder& operator<<(T const& value)
         {
             stream_ << value;
@@ -23,7 +23,7 @@ namespace DiagnosticConsole
             return stream_.str();
         }
 
-    private:
+      private:
         std::wostringstream stream_;
     };
 
@@ -82,4 +82,4 @@ namespace DiagnosticConsole
     {
         WriteLine(builder.str(), mirrorToDebugger);
     }
-}
+} // namespace DiagnosticConsole

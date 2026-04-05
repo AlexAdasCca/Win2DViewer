@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 
 #include "MyScrollView.h"
 
@@ -143,56 +143,56 @@ BOOL CMyScrollView::HandleScroll(UINT bar, UINT scrollCode, UINT scrollPos, BOOL
     {
         switch (scrollCode)
         {
-        case SB_LINELEFT:
-            target -= lineDev.cx;
-            break;
-        case SB_LINERIGHT:
-            target += lineDev.cx;
-            break;
-        case SB_PAGELEFT:
-            target -= pageDev.cx;
-            break;
-        case SB_PAGERIGHT:
-            target += pageDev.cx;
-            break;
-        case SB_LEFT:
-            target = 0;
-            break;
-        case SB_RIGHT:
-            target = GetScrollLimit(bar);
-            break;
-        default:
-            return FALSE;
+            case SB_LINELEFT:
+                target -= lineDev.cx;
+                break;
+            case SB_LINERIGHT:
+                target += lineDev.cx;
+                break;
+            case SB_PAGELEFT:
+                target -= pageDev.cx;
+                break;
+            case SB_PAGERIGHT:
+                target += pageDev.cx;
+                break;
+            case SB_LEFT:
+                target = 0;
+                break;
+            case SB_RIGHT:
+                target = GetScrollLimit(bar);
+                break;
+            default:
+                return FALSE;
         }
     }
     else
     {
         switch (scrollCode)
         {
-        case SB_LINEUP:
-            target -= lineDev.cy;
-            break;
-        case SB_LINEDOWN:
-            target += lineDev.cy;
-            break;
-        case SB_PAGEUP:
-            target -= pageDev.cy;
-            break;
-        case SB_PAGEDOWN:
-            target += pageDev.cy;
-            break;
-        case SB_TOP:
-            target = 0;
-            break;
-        case SB_BOTTOM:
-            target = GetScrollLimit(bar);
-            break;
-        default:
-            return FALSE;
+            case SB_LINEUP:
+                target -= lineDev.cy;
+                break;
+            case SB_LINEDOWN:
+                target += lineDev.cy;
+                break;
+            case SB_PAGEUP:
+                target -= pageDev.cy;
+                break;
+            case SB_PAGEDOWN:
+                target += pageDev.cy;
+                break;
+            case SB_TOP:
+                target = 0;
+                break;
+            case SB_BOTTOM:
+                target = GetScrollLimit(bar);
+                break;
+            default:
+                return FALSE;
         }
     }
 
-    CSize delta{ 0, 0 };
+    CSize delta{0, 0};
     if (horizontal)
     {
         delta.cx = target - current;
@@ -214,8 +214,7 @@ BOOL CMyScrollView::OnScrollBy(CSize sizeScroll, BOOL bDoScroll)
 
     CPoint target = ClampScrollPosition(CPoint{
         currentScrollPos.x + sizeScroll.cx,
-        currentScrollPos.y + sizeScroll.cy
-    });
+        currentScrollPos.y + sizeScroll.cy});
 
     if (target == currentScrollPos)
     {
@@ -300,4 +299,3 @@ void CMyScrollView::DoNoScrollUpdate(int dx, int dy)
         DrawClientRect(rect);
     }
 }
-

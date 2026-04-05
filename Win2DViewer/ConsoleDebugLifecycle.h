@@ -10,4 +10,4 @@ namespace ConsoleDebugLifecycle
     void EnsureDebugConsole();
     void ReleaseDebugConsole();
     void DebugPrintLine(std::wstring const& line);
-}
+} // namespace ConsoleDebugLifecycle

@@ -1,9 +1,9 @@
-#pragma once
+﻿#pragma once
 
 #include "pch.h"
 
-#include <DispatcherQueue.h>
 #include "WinrtNsAliases.h"
+#include <DispatcherQueue.h>
 
 namespace DesktopInterop
 {
@@ -19,4 +19,4 @@ namespace DesktopInterop
 
     bool CreateDesktopHostTestWindow(DesktopHostBackend backend, std::wstring* errorMessage = nullptr);
     void ShowDesktopHostTestPanel(HWND ownerWindow);
-}
+} // namespace DesktopInterop

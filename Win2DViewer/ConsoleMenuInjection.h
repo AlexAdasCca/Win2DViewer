@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 namespace ConsoleMenu
 {
@@ -6,4 +6,4 @@ namespace ConsoleMenu
     bool EnsureConsoleHookInjected();
     void SetInjectionDiagnosticsEnabled(bool enabled) noexcept;
     void ResetConsoleHookState() noexcept;
-}
+} // namespace ConsoleMenu

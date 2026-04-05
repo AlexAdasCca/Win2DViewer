@@ -57,23 +57,23 @@ namespace
             return std::nullopt;
         }
 
-        return std::wstring{ filePath };
+        return std::wstring{filePath};
     }
 
     UINT LayerModeToCommandId(CWin2DView::RenderLayerMode mode)
     {
         switch (mode)
         {
-        case CWin2DView::RenderLayerMode::EffectsOverSvg:
-            return ID_VIEW_LAYER_EFFECT_OVER_SVG;
-        case CWin2DView::RenderLayerMode::SvgOverEffects:
-            return ID_VIEW_LAYER_SVG_OVER_EFFECT;
-        case CWin2DView::RenderLayerMode::SvgOnly:
-            return ID_VIEW_LAYER_SVG_ONLY;
-        case CWin2DView::RenderLayerMode::EffectsOnly:
-            return ID_VIEW_LAYER_EFFECT_ONLY;
-        default:
-            return ID_VIEW_LAYER_EFFECT_OVER_SVG;
+            case CWin2DView::RenderLayerMode::EffectsOverSvg:
+                return ID_VIEW_LAYER_EFFECT_OVER_SVG;
+            case CWin2DView::RenderLayerMode::SvgOverEffects:
+                return ID_VIEW_LAYER_SVG_OVER_EFFECT;
+            case CWin2DView::RenderLayerMode::SvgOnly:
+                return ID_VIEW_LAYER_SVG_ONLY;
+            case CWin2DView::RenderLayerMode::EffectsOnly:
+                return ID_VIEW_LAYER_EFFECT_ONLY;
+            default:
+                return ID_VIEW_LAYER_EFFECT_OVER_SVG;
         }
     }
 
@@ -82,7 +82,7 @@ namespace
         const std::wstring message = LoadAppString(IDS_APP_TITLE) + L"\nWTL host for Win2D SVG rendering.";
         AtlMessageBox(ownerWindow, message.c_str(), IDS_APP_TITLE, MB_OK | MB_ICONINFORMATION);
     }
-}
+} // namespace
 
 BOOL CMainFrame::PreTranslateMessage(MSG* pMsg)
 {
@@ -351,8 +351,10 @@ void CMainFrame::InitializeSystemMenu()
                 0,
                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
         };
-        topMostItem.isChecked = [this]() { return isWindowTopMost; };
-        topMostItem.isEnabled = []() { return true; };
+        topMostItem.isChecked = [this]()
+        { return isWindowTopMost; };
+        topMostItem.isEnabled = []()
+        { return true; };
 
         SystemMenu::MenuItemSpec separator{};
         separator.separator = true;
@@ -363,8 +365,10 @@ void CMainFrame::InitializeSystemMenu()
         aboutItem.shortcut = SystemMenu::ShortcutBinding{};
         aboutItem.shortcut->virtualKey = VK_F1;
         aboutItem.shortcut->alt = true;
-        aboutItem.onInvoke = [](HWND windowHandle) { ShowAboutDialog(windowHandle); };
-        aboutItem.isEnabled = []() { return true; };
+        aboutItem.onInvoke = [](HWND windowHandle)
+        { ShowAboutDialog(windowHandle); };
+        aboutItem.isEnabled = []()
+        { return true; };
 
         (void)systemMenuHost.AddItem(separator, &errorMessage);
         (void)systemMenuHost.AddItem(std::move(topMostItem), &errorMessage);
@@ -405,7 +409,7 @@ void CMainFrame::UpdateWindowTitle()
     if (!document.GetPath().empty())
     {
         title += L" - ";
-        title += std::wstring{ document.GetPath() };
+        title += std::wstring{document.GetPath()};
     }
 
     SetWindowTextW(title.c_str());
@@ -444,4 +448,3 @@ void CMainFrame::UpdateSystemMenuState(HMENU menuHandle)
 
     systemMenuHost.RefreshState(systemMenu);
 }
-

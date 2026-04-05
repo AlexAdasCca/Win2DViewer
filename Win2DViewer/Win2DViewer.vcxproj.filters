@@ -36,10 +36,10 @@
     <ClInclude Include="DesktopCompositionInterop.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="timer.h">
+    <ClInclude Include="CallBackTimer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="devicelost.h">
+    <ClInclude Include="DeviceLostHelper.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="pch.h">
@@ -69,6 +69,12 @@
     <ClInclude Include="ConsoleDebugMessages.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Win2DViewInternal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DesktopCompositionInteropInternal.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DesktopCompositionInterop.cpp">
@@ -92,7 +98,7 @@
     <ClCompile Include="HookingActivation2.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="devicelost.cpp">
+    <ClCompile Include="DeviceLostHelper.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="pch.cpp">
@@ -108,6 +114,30 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ConsoleDebugLifecycle.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="DesktopInteropDComp.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="DesktopInteropPanel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="DesktopInteropWinRT.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Win2DViewConsoleDebug.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Win2DViewInput.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Win2DViewRendering.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Win2DViewShared.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Win2DViewSvgText.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -144,3 +174,4 @@
     </Image>
   </ItemGroup>
 </Project>
+

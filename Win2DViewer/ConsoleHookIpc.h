@@ -10,4 +10,4 @@ namespace ConsoleHookIpc
         swprintf_s(name, L"Local\\Win2DViewer.ConsoleCloseNotify.%lu", static_cast<unsigned long>(ownerProcessId));
         return name;
     }
-}
+} // namespace ConsoleHookIpc

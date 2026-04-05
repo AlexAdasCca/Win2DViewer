@@ -7,14 +7,13 @@ namespace HookingActivationNs
 {
     namespace wr = wna::rt;
     namespace wf = wna::wd::fnd;
-}
+} // namespace HookingActivationNs
 
 #ifdef _M_IX86
 #pragma comment(linker, "/alternatename:_OS_RoGetActivationFactory@12=_RoGetActivationFactory@12")
 #else
 #pragma comment(linker, "/alternatename:OS_RoGetActivationFactory=RoGetActivationFactory")
 #endif
-
 
 extern "C"
 {
@@ -29,13 +28,13 @@ bool StartsWith(std::wstring_view value, std::wstring_view match) noexcept
 extern "C" HRESULT __stdcall WINRT_RoGetActivationFactory2(HSTRING classId, GUID const& iid, void** factory) noexcept
 {
 #else
-extern "C"  HRESULT WINRT_RoGetActivationFactory2(void* classIdRaw, GUID const& iid, void** factory) noexcept
+extern "C" HRESULT WINRT_RoGetActivationFactory2(void* classIdRaw, GUID const& iid, void** factory) noexcept
 {
     HSTRING classId = (HSTRING)classIdRaw;
 #endif
     *factory = nullptr;
-    std::wstring_view name( WindowsGetStringRawBuffer(classId, nullptr), WindowsGetStringLen(classId) );
-    HMODULE library{ nullptr };
+    std::wstring_view name(WindowsGetStringRawBuffer(classId, nullptr), WindowsGetStringLen(classId));
+    HMODULE library{nullptr};
 
 #if 1
     if (StartsWith(name, L"Microsoft.Graphics.Canvas."))

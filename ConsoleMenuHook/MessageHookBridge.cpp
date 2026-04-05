@@ -80,7 +80,7 @@ namespace ConsoleMenuHook
 
             return result;
         }
-    }
+    } // namespace
 
     bool InstallMessageTimingHooks()
     {
@@ -207,4 +207,4 @@ namespace ConsoleMenuHook
             LogLine(L"[ConsoleMenuHook] Removed GetMessageW/PeekMessageW quit hooks.");
         }
     }
-}
+} // namespace ConsoleMenuHook

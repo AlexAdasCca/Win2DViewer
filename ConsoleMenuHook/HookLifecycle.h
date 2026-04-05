@@ -6,4 +6,4 @@ namespace ConsoleMenuHook
 {
     DWORD WINAPI InitializeConsoleMenuThread(LPVOID);
     void CleanupConsoleMenuHook();
-}
+} // namespace ConsoleMenuHook

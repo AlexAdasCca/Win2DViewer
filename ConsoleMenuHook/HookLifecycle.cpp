@@ -30,7 +30,7 @@ namespace ConsoleMenuHook
                 runtimeState.DiscoveryStopEvent = nullptr;
             }
         }
-    }
+    } // namespace
 
     DWORD WINAPI InitializeConsoleMenuThread(LPVOID)
     {
@@ -120,4 +120,4 @@ namespace ConsoleMenuHook
             runtimeState.InitThread = nullptr;
         }
     }
-}
+} // namespace ConsoleMenuHook

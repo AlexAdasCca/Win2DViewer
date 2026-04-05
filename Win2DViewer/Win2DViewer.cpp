@@ -14,7 +14,7 @@ namespace Win2DViewerAppNs
 {
     namespace wr = wna::rt;
     namespace wus = wna::wd::sys;
-}
+} // namespace Win2DViewerAppNs
 
 Win2DViewerAppNs::wus::DispatcherQueueController CreateDispatcherQueueController()
 {
@@ -29,7 +29,7 @@ std::wstring LoadAppString(UINT stringId)
         return L"Win2DViewer";
     }
 
-    return std::wstring{ value.GetString() };
+    return std::wstring{value.GetString()};
 }
 
 namespace
@@ -52,7 +52,7 @@ namespace
         ::LocalFree(argv);
         return result;
     }
-}
+} // namespace
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow)
 {
@@ -113,4 +113,3 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow)
         return static_cast<int>(ex.code().value);
     }
 }
-

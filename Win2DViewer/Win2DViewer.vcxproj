@@ -305,15 +305,17 @@
     <ClInclude Include="ConsoleTextWriter.h" />
     <ClInclude Include="DisplaySyncHelper.h" />
     <ClInclude Include="DesktopCompositionInterop.h" />
-    <ClInclude Include="devicelost.h" />
+    <ClInclude Include="DesktopCompositionInteropInternal.h" />
+    <ClInclude Include="DeviceLostHelper.h" />
     <ClInclude Include="MainFrm.h" />
     <ClInclude Include="MyScrollView.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="targetver.h" />
-    <ClInclude Include="timer.h" />
+    <ClInclude Include="CallBackTimer.h" />
     <ClInclude Include="Win2DViewer.h" />
     <ClInclude Include="WinrtNsAliases.h" />
+    <ClInclude Include="Win2DViewInternal.h" />
     <ClInclude Include="SvgDocument.h" />
     <ClInclude Include="SystemMenuExtensions.h" />
     <ClInclude Include="Win2DView.h" />
@@ -330,10 +332,13 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="DesktopCompositionInterop.cpp" />
+    <ClCompile Include="DesktopInteropDComp.cpp" />
+    <ClCompile Include="DesktopInteropPanel.cpp" />
+    <ClCompile Include="DesktopInteropWinRT.cpp" />
     <ClCompile Include="DisplaySyncHelper.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="devicelost.cpp" />
+    <ClCompile Include="DeviceLostHelper.cpp" />
     <ClCompile Include="HookingActivation.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
@@ -353,6 +358,11 @@
     <ClCompile Include="Win2DViewer.cpp" />
     <ClCompile Include="SvgDocument.cpp" />
     <ClCompile Include="Win2DView.cpp" />
+    <ClCompile Include="Win2DViewConsoleDebug.cpp" />
+    <ClCompile Include="Win2DViewInput.cpp" />
+    <ClCompile Include="Win2DViewRendering.cpp" />
+    <ClCompile Include="Win2DViewShared.cpp" />
+    <ClCompile Include="Win2DViewSvgText.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.manifest" />
@@ -390,5 +400,6 @@
     <Error Condition="!Exists('..\packages\Microsoft.Windows.CppWinRT.2.0.250303.1\build\native\Microsoft.Windows.CppWinRT.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.Windows.CppWinRT.2.0.250303.1\build\native\Microsoft.Windows.CppWinRT.targets'))" />
   </Target>
 </Project>
+
 
 

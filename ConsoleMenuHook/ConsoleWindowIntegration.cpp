@@ -117,8 +117,10 @@ namespace ConsoleMenuHook
                     0,
                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
             };
-            topMostItem.isChecked = []() { return GetRuntimeState().ConsoleWindowTopMost; };
-            topMostItem.isEnabled = []() { return true; };
+            topMostItem.isChecked = []()
+            { return GetRuntimeState().ConsoleWindowTopMost; };
+            topMostItem.isEnabled = []()
+            { return true; };
 
             SystemMenu::MenuItemSpec aboutItem{};
             aboutItem.id = SystemMenu::kCommandAbout;
@@ -126,8 +128,10 @@ namespace ConsoleMenuHook
             aboutItem.shortcut = SystemMenu::ShortcutBinding{};
             aboutItem.shortcut->virtualKey = VK_F1;
             aboutItem.shortcut->alt = true;
-            aboutItem.onInvoke = [](HWND ownerWindow) { ShowAboutDialog(ownerWindow); };
-            aboutItem.isEnabled = []() { return true; };
+            aboutItem.onInvoke = [](HWND ownerWindow)
+            { ShowAboutDialog(ownerWindow); };
+            aboutItem.isEnabled = []()
+            { return true; };
 
             std::wstring errorMessage;
             if (!runtimeState.ConsoleMenuHost.AddItem(separator, &errorMessage) ||
@@ -157,57 +161,57 @@ namespace ConsoleMenuHook
             auto& runtimeState = GetRuntimeState();
             switch (message)
             {
-            case WM_INITMENUPOPUP:
-                runtimeState.ConsoleMenuHost.RefreshState(reinterpret_cast<HMENU>(wParam));
-                break;
+                case WM_INITMENUPOPUP:
+                    runtimeState.ConsoleMenuHost.RefreshState(reinterpret_cast<HMENU>(wParam));
+                    break;
 
-            case WM_SYSCOMMAND:
-            {
-                const UINT_PTR commandId = (wParam & 0xFFF0);
-                if (commandId == SC_CLOSE)
+                case WM_SYSCOMMAND:
                 {
-                    NotifyOwnerConsoleClose(L"LongPtr/SC_CLOSE");
+                    const UINT_PTR commandId = (wParam & 0xFFF0);
+                    if (commandId == SC_CLOSE)
+                    {
+                        NotifyOwnerConsoleClose(L"LongPtr/SC_CLOSE");
+                        return 0;
+                    }
+                    if (runtimeState.ConsoleMenuHost.HandleCommand(windowHandle, commandId))
+                    {
+                        DiagnosticConsole::LineBuilder line;
+                        line << L"[ConsoleMenuHook] Handled longptr WM_SYSCOMMAND id=0x" << std::hex << commandId;
+                        LogLine(line.str());
+                        return 0;
+                    }
+                    break;
+                }
+
+                case WM_CLOSE:
+                    NotifyOwnerConsoleClose(L"LongPtr/WM_CLOSE");
                     return 0;
-                }
-                if (runtimeState.ConsoleMenuHost.HandleCommand(windowHandle, commandId))
-                {
-                    DiagnosticConsole::LineBuilder line;
-                    line << L"[ConsoleMenuHook] Handled longptr WM_SYSCOMMAND id=0x" << std::hex << commandId;
-                    LogLine(line.str());
-                    return 0;
-                }
-                break;
-            }
 
-            case WM_CLOSE:
-                NotifyOwnerConsoleClose(L"LongPtr/WM_CLOSE");
-                return 0;
+                case WM_KEYDOWN:
+                case WM_SYSKEYDOWN:
+                    if (runtimeState.ConsoleMenuHost.HandleShortcut(windowHandle, message, wParam))
+                    {
+                        LogLine(L"[ConsoleMenuHook] Handled longptr shortcut.");
+                        return 0;
+                    }
+                    break;
 
-            case WM_KEYDOWN:
-            case WM_SYSKEYDOWN:
-                if (runtimeState.ConsoleMenuHost.HandleShortcut(windowHandle, message, wParam))
+                case WM_NCDESTROY:
                 {
-                    LogLine(L"[ConsoleMenuHook] Handled longptr shortcut.");
-                    return 0;
-                }
-                break;
+                    NotifyOwnerConsoleClose(L"LongPtr/WM_NCDESTROY");
+                    const WNDPROC originalProc = runtimeState.ConsoleWindowOriginalWndProc.load();
+                    if (originalProc != nullptr && originalProc != &ConsoleWindowLongPtrProc)
+                    {
+                        (void)::SetWindowLongPtrW(windowHandle, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(originalProc));
+                    }
+                    ResetWindowIntegrationStateAfterDestroy();
 
-            case WM_NCDESTROY:
-            {
-                NotifyOwnerConsoleClose(L"LongPtr/WM_NCDESTROY");
-                const WNDPROC originalProc = runtimeState.ConsoleWindowOriginalWndProc.load();
-                if (originalProc != nullptr && originalProc != &ConsoleWindowLongPtrProc)
-                {
-                    (void)::SetWindowLongPtrW(windowHandle, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(originalProc));
+                    if (originalProc != nullptr && originalProc != &ConsoleWindowLongPtrProc)
+                    {
+                        return ::CallWindowProcW(originalProc, windowHandle, message, wParam, lParam);
+                    }
+                    return ::DefWindowProcW(windowHandle, message, wParam, lParam);
                 }
-                ResetWindowIntegrationStateAfterDestroy();
-
-                if (originalProc != nullptr && originalProc != &ConsoleWindowLongPtrProc)
-                {
-                    return ::CallWindowProcW(originalProc, windowHandle, message, wParam, lParam);
-                }
-                return ::DefWindowProcW(windowHandle, message, wParam, lParam);
-            }
             }
 
             return callOriginal();
@@ -262,7 +266,7 @@ namespace ConsoleMenuHook
             LogLine(line.str());
             runtimeState.ConsoleMenuInstalled.store(true);
         }
-    }
+    } // namespace
 
     HWND FindConsoleWindowForCurrentProcess(bool verbose, const wchar_t* source)
     {
@@ -409,8 +413,8 @@ namespace ConsoleMenuHook
             {
                 DWORD waitedMs = 0;
                 while (!runtimeState.ConsoleWindowSubclassed.load() &&
-                    runtimeState.ConsoleIntegrateInProgress.load() &&
-                    waitedMs < kIntegrateWaitBudgetMs)
+                       runtimeState.ConsoleIntegrateInProgress.load() &&
+                       waitedMs < kIntegrateWaitBudgetMs)
                 {
                     if (runtimeState.DiscoveryStopEvent != nullptr)
                     {
@@ -457,8 +461,8 @@ namespace ConsoleMenuHook
             }
 
             const DWORD waitResult = runtimeState.DiscoveryStopEvent != nullptr
-                ? ::WaitForSingleObject(runtimeState.DiscoveryStopEvent, 20)
-                : WAIT_TIMEOUT;
+                                         ? ::WaitForSingleObject(runtimeState.DiscoveryStopEvent, 20)
+                                         : WAIT_TIMEOUT;
             if (waitResult == WAIT_OBJECT_0)
             {
                 return 0;
@@ -479,4 +483,4 @@ namespace ConsoleMenuHook
         }
         runtimeState.ConsoleWindowOriginalWndProc.store(nullptr);
     }
-}
+} // namespace ConsoleMenuHook
