@@ -19,7 +19,8 @@ namespace ConsoleMenuHook
             }
 
             auto& runtimeState = GetRuntimeState();
-            return runtimeState.OriginalTranslateMessage != nullptr ? runtimeState.OriginalTranslateMessage(message) : FALSE;
+            return runtimeState.OriginalTranslateMessage != nullptr ? runtimeState.OriginalTranslateMessage(message) :
+                                                                      FALSE;
         }
 
         LRESULT WINAPI HookedDispatchMessageW(const MSG* message)
@@ -44,7 +45,8 @@ namespace ConsoleMenuHook
                 }
             }
 
-            return runtimeState.OriginalDispatchMessageW != nullptr ? runtimeState.OriginalDispatchMessageW(message) : 0;
+            return runtimeState.OriginalDispatchMessageW != nullptr ? runtimeState.OriginalDispatchMessageW(message) :
+                                                                      0;
         }
 
         BOOL WINAPI HookedGetMessageW(LPMSG message, HWND windowHandle, UINT minFilter, UINT maxFilter)
@@ -64,7 +66,8 @@ namespace ConsoleMenuHook
             return result;
         }
 
-        BOOL WINAPI HookedPeekMessageW(LPMSG message, HWND windowHandle, UINT minFilter, UINT maxFilter, UINT removeMessage)
+        BOOL WINAPI
+        HookedPeekMessageW(LPMSG message, HWND windowHandle, UINT minFilter, UINT maxFilter, UINT removeMessage)
         {
             auto& runtimeState = GetRuntimeState();
             if (runtimeState.OriginalPeekMessageW == nullptr)
@@ -72,7 +75,8 @@ namespace ConsoleMenuHook
                 return FALSE;
             }
 
-            const BOOL result = runtimeState.OriginalPeekMessageW(message, windowHandle, minFilter, maxFilter, removeMessage);
+            const BOOL result =
+                runtimeState.OriginalPeekMessageW(message, windowHandle, minFilter, maxFilter, removeMessage);
             if (result && message != nullptr && message->message == WM_QUIT)
             {
                 NotifyOwnerConsoleClose(L"HookedPeekMessageW/WM_QUIT");
@@ -101,7 +105,8 @@ namespace ConsoleMenuHook
         status = DetourAttach(reinterpret_cast<PVOID*>(&runtimeState.OriginalTranslateMessage), HookedTranslateMessage);
         if (status == NO_ERROR)
         {
-            status = DetourAttach(reinterpret_cast<PVOID*>(&runtimeState.OriginalDispatchMessageW), HookedDispatchMessageW);
+            status =
+                DetourAttach(reinterpret_cast<PVOID*>(&runtimeState.OriginalDispatchMessageW), HookedDispatchMessageW);
         }
 
         if (status != NO_ERROR)

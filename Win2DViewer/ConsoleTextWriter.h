@@ -10,20 +10,17 @@ namespace DiagnosticConsole
 {
     class LineBuilder
     {
-      public:
-        template <typename T>
+    public:
+        template<typename T>
         LineBuilder& operator<<(T const& value)
         {
             stream_ << value;
             return *this;
         }
 
-        std::wstring str() const
-        {
-            return stream_.str();
-        }
+        std::wstring str() const { return stream_.str(); }
 
-      private:
+    private:
         std::wostringstream stream_;
     };
 
@@ -45,14 +42,8 @@ namespace DiagnosticConsole
         HANDLE consoleHandle = ::GetStdHandle(STD_OUTPUT_HANDLE);
         if (consoleHandle == nullptr || consoleHandle == INVALID_HANDLE_VALUE)
         {
-            consoleHandle = ::CreateFileW(
-                L"CONOUT$",
-                GENERIC_WRITE,
-                FILE_SHARE_WRITE,
-                nullptr,
-                OPEN_EXISTING,
-                0,
-                nullptr);
+            consoleHandle =
+                ::CreateFileW(L"CONOUT$", GENERIC_WRITE, FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
             if (consoleHandle == INVALID_HANDLE_VALUE)
             {
                 return;

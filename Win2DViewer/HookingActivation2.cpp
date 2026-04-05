@@ -15,9 +15,8 @@ namespace HookingActivationNs
 #pragma comment(linker, "/alternatename:OS_RoGetActivationFactory=RoGetActivationFactory")
 #endif
 
-extern "C"
-{
-    HRESULT __stdcall OS_RoGetActivationFactory(HSTRING classId, GUID const& iid, void** factory) noexcept;
+extern "C" {
+HRESULT __stdcall OS_RoGetActivationFactory(HSTRING classId, GUID const& iid, void** factory) noexcept;
 }
 
 bool StartsWith(std::wstring_view value, std::wstring_view match) noexcept
@@ -34,7 +33,7 @@ extern "C" HRESULT WINRT_RoGetActivationFactory2(void* classIdRaw, GUID const& i
 #endif
     *factory = nullptr;
     std::wstring_view name(WindowsGetStringRawBuffer(classId, nullptr), WindowsGetStringLen(classId));
-    HMODULE library{nullptr};
+    HMODULE library{ nullptr };
 
 #if 1
     if (StartsWith(name, L"Microsoft.Graphics.Canvas."))

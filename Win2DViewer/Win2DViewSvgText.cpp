@@ -3,9 +3,8 @@
 #include "Win2DViewInternal.h"
 #include "Win2DViewer.h"
 
-void CWin2DView::DrawSvgTextOverlay(
-    Win2DViewNs::mgc::CanvasDrawingSession const& session,
-    Win2DViewNs::wfn::float3x2 const& transform)
+void CWin2DView::DrawSvgTextOverlay(Win2DViewNs::mgc::CanvasDrawingSession const& session,
+                                    Win2DViewNs::wfn::float3x2 const& transform)
 {
     if (svgTextOverlays.empty())
     {
@@ -13,8 +12,7 @@ void CWin2DView::DrawSvgTextOverlay(
         {
             lastLoggedTextOverlayCount = 0;
             lastLoggedTextOverlayFailures = 0;
-            Win2DViewInternal::DebugPrintLine(
-                L"[SvgTextOverlay] total=0 drawn=0 failed=0");
+            Win2DViewInternal::DebugPrintLine(L"[SvgTextOverlay] total=0 drawn=0 failed=0");
         }
         return;
     }
@@ -26,15 +24,13 @@ void CWin2DView::DrawSvgTextOverlay(
 
     for (auto const& item : svgTextOverlays)
     {
-        auto drawWithFont = [&](std::wstring const& fontFamily) -> bool
-        {
+        auto drawWithFont = [&](std::wstring const& fontFamily) -> bool {
             try
             {
                 Win2DViewNs::mgct::CanvasTextFormat textFormat;
                 textFormat.FontFamily(Win2DViewNs::wr::hstring(fontFamily));
                 textFormat.FontSize(item.fontSize);
-                textFormat.HorizontalAlignment(
-                    Win2DViewNs::mgct::CanvasHorizontalAlignment::Left);
+                textFormat.HorizontalAlignment(Win2DViewNs::mgct::CanvasHorizontalAlignment::Left);
                 if (item.bold)
                 {
                     textFormat.FontWeight(Win2DViewNs::wut::FontWeights::Bold());
@@ -42,25 +38,23 @@ void CWin2DView::DrawSvgTextOverlay(
 
                 constexpr float kMaxLayout = 10000.0f;
                 Win2DViewNs::mgct::CanvasTextLayout textLayout(
-                    resourceCreator, Win2DViewNs::wr::hstring(item.text), textFormat,
-                    kMaxLayout, kMaxLayout);
+                    resourceCreator, Win2DViewNs::wr::hstring(item.text), textFormat, kMaxLayout, kMaxLayout);
                 auto bounds = textLayout.LayoutBounds();
 
                 float drawX = item.x;
-                if (item.textAlignment ==
-                    Win2DViewNs::mgct::CanvasHorizontalAlignment::Center)
+                if (item.textAlignment == Win2DViewNs::mgct::CanvasHorizontalAlignment::Center)
                 {
                     drawX -= bounds.Width / 2.0f;
                 }
-                else if (item.textAlignment ==
-                         Win2DViewNs::mgct::CanvasHorizontalAlignment::Right)
+                else if (item.textAlignment == Win2DViewNs::mgct::CanvasHorizontalAlignment::Right)
                 {
                     drawX -= bounds.Width;
                 }
 
                 const float drawY = item.y - (bounds.Y + bounds.Height);
                 session.DrawText(Win2DViewNs::wr::hstring(item.text),
-                                 Win2DViewNs::wfn::float2(drawX, drawY), item.color,
+                                 Win2DViewNs::wfn::float2(drawX, drawY),
+                                 item.color,
                                  textFormat);
                 return true;
             }
@@ -93,17 +87,14 @@ void CWin2DView::DrawSvgTextOverlay(
     if (consoleDebugEnabled)
     {
         const int totalCount = static_cast<int>(svgTextOverlays.size());
-        if (totalCount != lastLoggedTextOverlayCount ||
-            failedCount != lastLoggedTextOverlayFailures)
+        if (totalCount != lastLoggedTextOverlayCount || failedCount != lastLoggedTextOverlayFailures)
         {
             lastLoggedTextOverlayCount = totalCount;
             lastLoggedTextOverlayFailures = failedCount;
             std::wstringstream ss;
-            ss << L"[SvgTextOverlay] total=" << totalCount << L" drawn=" << drawnCount
-               << L" failed=" << failedCount << L" transform=[" << transform.m11
-               << L"," << transform.m12 << L"," << transform.m21 << L","
-               << transform.m22 << L"," << transform.m31 << L"," << transform.m32
-               << L"]";
+            ss << L"[SvgTextOverlay] total=" << totalCount << L" drawn=" << drawnCount << L" failed=" << failedCount
+               << L" transform=[" << transform.m11 << L"," << transform.m12 << L"," << transform.m21 << L","
+               << transform.m22 << L"," << transform.m31 << L"," << transform.m32 << L"]";
             Win2DViewInternal::DebugPrintLine(ss.str());
         }
     }
@@ -127,10 +118,8 @@ bool CWin2DView::LoadSvg()
     else
     {
         text = Win2DViewInternal::UTF8ToWide(bytes.data());
-        text = Win2DViewInternal::ReplaceString(text, L"encoding=\"utf-8",
-                                                L"encoding=\"utf-16");
-        text = Win2DViewInternal::ReplaceString(text, L"encoding=\"UTF-8",
-                                                L"encoding=\"UTF-16");
+        text = Win2DViewInternal::ReplaceString(text, L"encoding=\"utf-8", L"encoding=\"utf-16");
+        text = Win2DViewInternal::ReplaceString(text, L"encoding=\"UTF-8", L"encoding=\"UTF-16");
     }
 
     svgTextOverlays = Win2DViewInternal::ParseSvgTextOverlays(text);
@@ -149,20 +138,18 @@ bool CWin2DView::LoadSvg()
         }
 
         std::wstringstream ss;
-        ss << L"[LoadSvg] xmlChars=" << text.size() << L" textTags=" << textTagCount
-           << L" overlaysParsed=" << svgTextOverlays.size();
+        ss << L"[LoadSvg] xmlChars=" << text.size() << L" textTags=" << textTagCount << L" overlaysParsed="
+           << svgTextOverlays.size();
         Win2DViewInternal::DebugPrintLine(ss.str());
 
         const size_t previewCount = std::min<size_t>(svgTextOverlays.size(), 5);
         for (size_t i = 0; i < previewCount; ++i)
         {
             auto const& item = svgTextOverlays[i];
-            std::wstring previewText =
-                item.text.substr(0, std::min<size_t>(item.text.size(), 32));
+            std::wstring previewText = item.text.substr(0, std::min<size_t>(item.text.size(), 32));
             std::wstringstream itemLog;
-            itemLog << L"  [Text#" << i << L"] x=" << item.x << L" y=" << item.y
-                    << L" font=" << item.fontFamily.c_str() << L" size="
-                    << item.fontSize << L" bold=" << (item.bold ? 1 : 0) << L" text="
+            itemLog << L"  [Text#" << i << L"] x=" << item.x << L" y=" << item.y << L" font=" << item.fontFamily.c_str()
+                    << L" size=" << item.fontSize << L" bold=" << (item.bold ? 1 : 0) << L" text="
                     << previewText.c_str();
             Win2DViewInternal::DebugPrintLine(itemLog.str());
         }
@@ -179,15 +166,13 @@ bool CWin2DView::LoadSvg()
         }
 
         auto canvasDevice = Win2DViewNs::mgc::CanvasDevice::GetSharedDevice();
-        svgDocument =
-            Win2DViewNs::mgcs::CanvasSvgDocument::LoadFromXml(canvasDevice, svgXml);
+        svgDocument = Win2DViewNs::mgcs::CanvasSvgDocument::LoadFromXml(canvasDevice, svgXml);
     }
     catch (Win2DViewNs::wr::hresult_error const& ex)
     {
         std::wstring message = L"Error loading SVG:\n";
         message += ex.message();
-        ::MessageBoxW(m_hWnd, message.c_str(), LoadAppString(IDS_APP_TITLE).c_str(),
-                      MB_OK | MB_ICONERROR);
+        ::MessageBoxW(m_hWnd, message.c_str(), LoadAppString(IDS_APP_TITLE).c_str(), MB_OK | MB_ICONERROR);
 
         if (document != nullptr)
         {
@@ -200,8 +185,7 @@ bool CWin2DView::LoadSvg()
     {
         if (consoleDebugEnabled)
         {
-            Win2DViewInternal::DebugPrintLine(
-                L"[LoadSvg] svgDocument is null after LoadFromXml.");
+            Win2DViewInternal::DebugPrintLine(L"[LoadSvg] svgDocument is null after LoadFromXml.");
         }
         return false;
     }
@@ -230,15 +214,14 @@ bool CWin2DView::LoadSvg()
         }
     }
 
-    SetScrollSizes(MM_TEXT, CSize(static_cast<int>(svgDocumentWidth),
-                                  static_cast<int>(svgDocumentHeight)));
+    SetScrollSizes(MM_TEXT, CSize(static_cast<int>(svgDocumentWidth), static_cast<int>(svgDocumentHeight)));
     transformMatrix = Win2DViewInternal::IdentityTransform();
     ScrollToPosition(CPoint(0, 0));
     if (consoleDebugEnabled)
     {
         std::wstringstream ss;
-        ss << L"[LoadSvg] docSize=" << svgDocumentWidth << L"x" << svgDocumentHeight
-           << L" currentView=" << width << L"x" << height << L" dpi=" << currentDpi;
+        ss << L"[LoadSvg] docSize=" << svgDocumentWidth << L"x" << svgDocumentHeight << L" currentView=" << width
+           << L"x" << height << L" dpi=" << currentDpi;
         Win2DViewInternal::DebugPrintLine(ss.str());
     }
     return true;

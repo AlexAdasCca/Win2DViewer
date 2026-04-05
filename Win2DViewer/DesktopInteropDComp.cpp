@@ -7,43 +7,36 @@ void DesktopInteropInternal::DesktopHostWindow::InitializeDirectComposition()
     CreateD3D11Device();
 
     auto dxgiDevice = d3dDevice.as<IDXGIDevice>();
-    DesktopInteropNs::wr::check_hresult(::DCompositionCreateDevice2(
-        dxgiDevice.get(), __uuidof(IDCompositionDevice), dcompDevice.put_void()));
+    DesktopInteropNs::wr::check_hresult(
+        ::DCompositionCreateDevice2(dxgiDevice.get(), __uuidof(IDCompositionDevice), dcompDevice.put_void()));
 
-    DesktopInteropNs::wr::check_hresult(
-        dcompDevice->CreateTargetForHwnd(windowHandle, TRUE, dcompTarget.put()));
-    DesktopInteropNs::wr::check_hresult(
-        dcompDevice->CreateVisual(dcompVisual.put()));
-    DesktopInteropNs::wr::check_hresult(
-        dcompDevice->CreateVisual(dcompBackgroundVisual.put()));
-    DesktopInteropNs::wr::check_hresult(
-        dcompDevice->CreateVisual(dcompOverlayVisual.put()));
+    DesktopInteropNs::wr::check_hresult(dcompDevice->CreateTargetForHwnd(windowHandle, TRUE, dcompTarget.put()));
+    DesktopInteropNs::wr::check_hresult(dcompDevice->CreateVisual(dcompVisual.put()));
+    DesktopInteropNs::wr::check_hresult(dcompDevice->CreateVisual(dcompBackgroundVisual.put()));
+    DesktopInteropNs::wr::check_hresult(dcompDevice->CreateVisual(dcompOverlayVisual.put()));
 
     InitializeDirectCompositionPipeline();
     ResizeDirectCompositionSwapChain();
+    DesktopInteropNs::wr::check_hresult(dcompBackgroundVisual->SetContent(dcompSwapChain.get()));
+    DesktopInteropNs::wr::check_hresult(dcompOverlayVisual->SetContent(dcompOverlaySwapChain.get()));
+    DesktopInteropNs::wr::check_hresult(dcompVisual->AddVisual(dcompBackgroundVisual.get(), FALSE, nullptr));
     DesktopInteropNs::wr::check_hresult(
-        dcompBackgroundVisual->SetContent(dcompSwapChain.get()));
-    DesktopInteropNs::wr::check_hresult(
-        dcompOverlayVisual->SetContent(dcompOverlaySwapChain.get()));
-    DesktopInteropNs::wr::check_hresult(
-        dcompVisual->AddVisual(dcompBackgroundVisual.get(), FALSE, nullptr));
-    DesktopInteropNs::wr::check_hresult(dcompVisual->AddVisual(
-        dcompOverlayVisual.get(), TRUE, dcompBackgroundVisual.get()));
+        dcompVisual->AddVisual(dcompOverlayVisual.get(), TRUE, dcompBackgroundVisual.get()));
     DesktopInteropNs::wr::check_hresult(dcompTarget->SetRoot(dcompVisual.get()));
     DesktopInteropNs::wr::check_hresult(dcompDevice->Commit());
 }
 
-void DesktopInteropInternal::DesktopHostWindow::CreateDCompCompositionSwapChain(
-    DXGI_ALPHA_MODE alphaMode, UINT width, UINT height,
-    IDXGISwapChain1** swapChain)
+void DesktopInteropInternal::DesktopHostWindow::CreateDCompCompositionSwapChain(DXGI_ALPHA_MODE alphaMode,
+                                                                                UINT width,
+                                                                                UINT height,
+                                                                                IDXGISwapChain1** swapChain)
 {
     auto dxgiDevice = d3dDevice.as<IDXGIDevice>();
     DesktopInteropNs::wr::com_ptr<IDXGIAdapter> adapter;
     DesktopInteropNs::wr::check_hresult(dxgiDevice->GetAdapter(adapter.put()));
 
     DesktopInteropNs::wr::com_ptr<IDXGIFactory2> dxgiFactory;
-    DesktopInteropNs::wr::check_hresult(
-        adapter->GetParent(__uuidof(IDXGIFactory2), dxgiFactory.put_void()));
+    DesktopInteropNs::wr::check_hresult(adapter->GetParent(__uuidof(IDXGIFactory2), dxgiFactory.put_void()));
 
     DXGI_SWAP_CHAIN_DESC1 swapChainDesc{};
     swapChainDesc.Width = width;
@@ -60,8 +53,7 @@ void DesktopInteropInternal::DesktopHostWindow::CreateDCompCompositionSwapChain(
     swapChainDesc.Flags = 0;
 
     DesktopInteropNs::wr::check_hresult(
-        dxgiFactory->CreateSwapChainForComposition(
-            d3dDevice.get(), &swapChainDesc, nullptr, swapChain));
+        dxgiFactory->CreateSwapChainForComposition(d3dDevice.get(), &swapChainDesc, nullptr, swapChain));
 }
 
 void DesktopInteropInternal::DesktopHostWindow::CreateD3D11Device()
@@ -72,40 +64,56 @@ void DesktopInteropInternal::DesktopHostWindow::CreateD3D11Device()
 #endif
 
     constexpr D3D_FEATURE_LEVEL featureLevels[] = {
-        D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_1,
-        D3D_FEATURE_LEVEL_10_0};
+        D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_1, D3D_FEATURE_LEVEL_10_0
+    };
 
     D3D_FEATURE_LEVEL selectedFeatureLevel{};
-    HRESULT hr = ::D3D11CreateDevice(
-        nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, creationFlags, featureLevels,
-        _countof(featureLevels), D3D11_SDK_VERSION, d3dDevice.put(),
-        &selectedFeatureLevel, d3dContext.put());
+    HRESULT hr = ::D3D11CreateDevice(nullptr,
+                                     D3D_DRIVER_TYPE_HARDWARE,
+                                     nullptr,
+                                     creationFlags,
+                                     featureLevels,
+                                     _countof(featureLevels),
+                                     D3D11_SDK_VERSION,
+                                     d3dDevice.put(),
+                                     &selectedFeatureLevel,
+                                     d3dContext.put());
 
 #ifdef _DEBUG
     if (FAILED(hr) && (creationFlags & D3D11_CREATE_DEVICE_DEBUG) != 0)
     {
         creationFlags &= ~D3D11_CREATE_DEVICE_DEBUG;
-        hr = ::D3D11CreateDevice(
-            nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, creationFlags,
-            featureLevels, _countof(featureLevels), D3D11_SDK_VERSION,
-            d3dDevice.put(), &selectedFeatureLevel, d3dContext.put());
+        hr = ::D3D11CreateDevice(nullptr,
+                                 D3D_DRIVER_TYPE_HARDWARE,
+                                 nullptr,
+                                 creationFlags,
+                                 featureLevels,
+                                 _countof(featureLevels),
+                                 D3D11_SDK_VERSION,
+                                 d3dDevice.put(),
+                                 &selectedFeatureLevel,
+                                 d3dContext.put());
     }
 #endif
 
     if (FAILED(hr))
     {
-        hr = ::D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_WARP, nullptr,
+        hr = ::D3D11CreateDevice(nullptr,
+                                 D3D_DRIVER_TYPE_WARP,
+                                 nullptr,
                                  creationFlags & ~D3D11_CREATE_DEVICE_DEBUG,
-                                 featureLevels, _countof(featureLevels),
-                                 D3D11_SDK_VERSION, d3dDevice.put(),
-                                 &selectedFeatureLevel, d3dContext.put());
+                                 featureLevels,
+                                 _countof(featureLevels),
+                                 D3D11_SDK_VERSION,
+                                 d3dDevice.put(),
+                                 &selectedFeatureLevel,
+                                 d3dContext.put());
     }
 
     DesktopInteropNs::wr::check_hresult(hr);
 }
 
-void DesktopInteropInternal::DesktopHostWindow::
-    InitializeDirectCompositionPipeline()
+void DesktopInteropInternal::DesktopHostWindow::InitializeDirectCompositionPipeline()
 {
     static constexpr char kVertexShaderSource[] = R"(
                 struct VSOut
@@ -572,36 +580,55 @@ void DesktopInteropInternal::DesktopHostWindow::
     DesktopInteropNs::wr::com_ptr<ID3DBlob> pixelShaderBlob;
     DesktopInteropNs::wr::com_ptr<ID3DBlob> errorBlob;
 
-    HRESULT hr =
-        ::D3DCompile(kVertexShaderSource, sizeof(kVertexShaderSource) - 1,
-                     nullptr, nullptr, nullptr, "main", "vs_5_0", shaderFlags, 0,
-                     vertexShaderBlob.put(), errorBlob.put());
+    HRESULT hr = ::D3DCompile(kVertexShaderSource,
+                              sizeof(kVertexShaderSource) - 1,
+                              nullptr,
+                              nullptr,
+                              nullptr,
+                              "main",
+                              "vs_5_0",
+                              shaderFlags,
+                              0,
+                              vertexShaderBlob.put(),
+                              errorBlob.put());
     DesktopInteropNs::wr::check_hresult(hr);
 
     errorBlob = nullptr;
-    hr = ::D3DCompile(kPixelShaderSource, sizeof(kPixelShaderSource) - 1, nullptr,
-                      nullptr, nullptr, "main", "ps_5_0", shaderFlags, 0,
-                      pixelShaderBlob.put(), errorBlob.put());
+    hr = ::D3DCompile(kPixelShaderSource,
+                      sizeof(kPixelShaderSource) - 1,
+                      nullptr,
+                      nullptr,
+                      nullptr,
+                      "main",
+                      "ps_5_0",
+                      shaderFlags,
+                      0,
+                      pixelShaderBlob.put(),
+                      errorBlob.put());
     DesktopInteropNs::wr::check_hresult(hr);
 
     DesktopInteropNs::wr::check_hresult(d3dDevice->CreateVertexShader(
-        vertexShaderBlob->GetBufferPointer(), vertexShaderBlob->GetBufferSize(),
-        nullptr, dcompVertexShader.put()));
+        vertexShaderBlob->GetBufferPointer(), vertexShaderBlob->GetBufferSize(), nullptr, dcompVertexShader.put()));
 
     DesktopInteropNs::wr::check_hresult(d3dDevice->CreatePixelShader(
-        pixelShaderBlob->GetBufferPointer(), pixelShaderBlob->GetBufferSize(),
-        nullptr, dcompPixelShader.put()));
+        pixelShaderBlob->GetBufferPointer(), pixelShaderBlob->GetBufferSize(), nullptr, dcompPixelShader.put()));
 
     errorBlob = nullptr;
     hr = ::D3DCompile(kOverlayPixelShaderSource,
-                      sizeof(kOverlayPixelShaderSource) - 1, nullptr, nullptr,
-                      nullptr, "main", "ps_5_0", shaderFlags, 0,
-                      pixelShaderBlob.put(), errorBlob.put());
+                      sizeof(kOverlayPixelShaderSource) - 1,
+                      nullptr,
+                      nullptr,
+                      nullptr,
+                      "main",
+                      "ps_5_0",
+                      shaderFlags,
+                      0,
+                      pixelShaderBlob.put(),
+                      errorBlob.put());
     DesktopInteropNs::wr::check_hresult(hr);
 
     DesktopInteropNs::wr::check_hresult(d3dDevice->CreatePixelShader(
-        pixelShaderBlob->GetBufferPointer(), pixelShaderBlob->GetBufferSize(),
-        nullptr, dcompOverlayPixelShader.put()));
+        pixelShaderBlob->GetBufferPointer(), pixelShaderBlob->GetBufferSize(), nullptr, dcompOverlayPixelShader.put()));
 
     D3D11_BUFFER_DESC constantBufferDesc{};
     constantBufferDesc.ByteWidth = sizeof(DCompFlowConstants);
@@ -610,31 +637,26 @@ void DesktopInteropInternal::DesktopHostWindow::
     constantBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
     constantBufferDesc.MiscFlags = 0;
     constantBufferDesc.StructureByteStride = 0;
-    DesktopInteropNs::wr::check_hresult(d3dDevice->CreateBuffer(
-        &constantBufferDesc, nullptr, dcompConstantBuffer.put()));
+    DesktopInteropNs::wr::check_hresult(
+        d3dDevice->CreateBuffer(&constantBufferDesc, nullptr, dcompConstantBuffer.put()));
 
     constantBufferDesc.ByteWidth = sizeof(DCompOverlayConstants);
-    DesktopInteropNs::wr::check_hresult(d3dDevice->CreateBuffer(
-        &constantBufferDesc, nullptr, dcompOverlayConstantBuffer.put()));
+    DesktopInteropNs::wr::check_hresult(
+        d3dDevice->CreateBuffer(&constantBufferDesc, nullptr, dcompOverlayConstantBuffer.put()));
 }
 
-void DesktopInteropInternal::DesktopHostWindow::
-    ResizeDirectCompositionSwapChain()
+void DesktopInteropInternal::DesktopHostWindow::ResizeDirectCompositionSwapChain()
 {
     RECT clientRect{};
     ::GetClientRect(windowHandle, &clientRect);
 
-    const UINT width = static_cast<UINT>(
-        (std::max<LONG>)(1L, clientRect.right - clientRect.left));
-    const UINT height = static_cast<UINT>(
-        (std::max<LONG>)(1L, clientRect.bottom - clientRect.top));
+    const UINT width = static_cast<UINT>((std::max<LONG>)(1L, clientRect.right - clientRect.left));
+    const UINT height = static_cast<UINT>((std::max<LONG>)(1L, clientRect.bottom - clientRect.top));
 
     if (dcompSwapChain == nullptr)
     {
-        CreateDCompCompositionSwapChain(DXGI_ALPHA_MODE_IGNORE, width, height,
-                                        dcompSwapChain.put());
-        CreateDCompCompositionSwapChain(DXGI_ALPHA_MODE_PREMULTIPLIED, width,
-                                        height, dcompOverlaySwapChain.put());
+        CreateDCompCompositionSwapChain(DXGI_ALPHA_MODE_IGNORE, width, height, dcompSwapChain.put());
+        CreateDCompCompositionSwapChain(DXGI_ALPHA_MODE_PREMULTIPLIED, width, height, dcompOverlaySwapChain.put());
     }
     else
     {
@@ -643,36 +665,31 @@ void DesktopInteropInternal::DesktopHostWindow::
         d3dContext->OMSetRenderTargets(0, nullptr, nullptr);
         d3dContext->ClearState();
         d3dContext->Flush();
-        DesktopInteropNs::wr::check_hresult(dcompSwapChain->ResizeBuffers(
-            2, width, height, DXGI_FORMAT_B8G8R8A8_UNORM, 0));
-        DesktopInteropNs::wr::check_hresult(dcompOverlaySwapChain->ResizeBuffers(
-            2, width, height, DXGI_FORMAT_B8G8R8A8_UNORM, 0));
+        DesktopInteropNs::wr::check_hresult(
+            dcompSwapChain->ResizeBuffers(2, width, height, DXGI_FORMAT_B8G8R8A8_UNORM, 0));
+        DesktopInteropNs::wr::check_hresult(
+            dcompOverlaySwapChain->ResizeBuffers(2, width, height, DXGI_FORMAT_B8G8R8A8_UNORM, 0));
     }
 
     DesktopInteropNs::wr::com_ptr<ID3D11Texture2D> backBuffer;
+    DesktopInteropNs::wr::check_hresult(dcompSwapChain->GetBuffer(0, IID_PPV_ARGS(backBuffer.put())));
     DesktopInteropNs::wr::check_hresult(
-        dcompSwapChain->GetBuffer(0, IID_PPV_ARGS(backBuffer.put())));
-    DesktopInteropNs::wr::check_hresult(d3dDevice->CreateRenderTargetView(
-        backBuffer.get(), nullptr, dcompRenderTargetView.put()));
+        d3dDevice->CreateRenderTargetView(backBuffer.get(), nullptr, dcompRenderTargetView.put()));
 
     DesktopInteropNs::wr::com_ptr<ID3D11Texture2D> overlayBackBuffer;
-    DesktopInteropNs::wr::check_hresult(dcompOverlaySwapChain->GetBuffer(
-        0, IID_PPV_ARGS(overlayBackBuffer.put())));
-    DesktopInteropNs::wr::check_hresult(d3dDevice->CreateRenderTargetView(
-        overlayBackBuffer.get(), nullptr, dcompOverlayRenderTargetView.put()));
+    DesktopInteropNs::wr::check_hresult(dcompOverlaySwapChain->GetBuffer(0, IID_PPV_ARGS(overlayBackBuffer.put())));
+    DesktopInteropNs::wr::check_hresult(
+        d3dDevice->CreateRenderTargetView(overlayBackBuffer.get(), nullptr, dcompOverlayRenderTargetView.put()));
 
     dcompPixelWidth = width;
     dcompPixelHeight = height;
     ClampDCompOverlayHandle();
 }
 
-RECT DesktopInteropInternal::DesktopHostWindow::GetDCompOverlayPanelRectPixels()
-    const
+RECT DesktopInteropInternal::DesktopHostWindow::GetDCompOverlayPanelRectPixels() const
 {
-    const LONG panelWidth =
-        static_cast<LONG>((std::min)(dcompPixelWidth * 36 / 100, 372u));
-    const LONG panelHeight =
-        static_cast<LONG>((std::min)(dcompPixelHeight * 34 / 100, 206u));
+    const LONG panelWidth = static_cast<LONG>((std::min)(dcompPixelWidth * 36 / 100, 372u));
+    const LONG panelHeight = static_cast<LONG>((std::min)(dcompPixelHeight * 34 / 100, 206u));
     RECT rect{};
     rect.left = static_cast<LONG>(dcompPixelWidth) - 28 - panelWidth;
     rect.top = 28;
@@ -681,8 +698,7 @@ RECT DesktopInteropInternal::DesktopHostWindow::GetDCompOverlayPanelRectPixels()
     return rect;
 }
 
-RECT DesktopInteropInternal::DesktopHostWindow::GetDCompPrimaryChipRectPixels()
-    const
+RECT DesktopInteropInternal::DesktopHostWindow::GetDCompPrimaryChipRectPixels() const
 {
     const RECT panel = GetDCompOverlayPanelRectPixels();
     const LONG chipWidth = (panel.right - panel.left) * 28 / 100;
@@ -694,8 +710,7 @@ RECT DesktopInteropInternal::DesktopHostWindow::GetDCompPrimaryChipRectPixels()
     return rect;
 }
 
-RECT DesktopInteropInternal::DesktopHostWindow::
-    GetDCompSecondaryChipRectPixels() const
+RECT DesktopInteropInternal::DesktopHostWindow::GetDCompSecondaryChipRectPixels() const
 {
     RECT rect = GetDCompPrimaryChipRectPixels();
     const LONG gap = 14;
@@ -705,8 +720,7 @@ RECT DesktopInteropInternal::DesktopHostWindow::
     return rect;
 }
 
-RECT DesktopInteropInternal::DesktopHostWindow::GetDCompFieldRectPixels()
-    const
+RECT DesktopInteropInternal::DesktopHostWindow::GetDCompFieldRectPixels() const
 {
     const RECT panel = GetDCompOverlayPanelRectPixels();
     RECT rect{};
@@ -717,8 +731,7 @@ RECT DesktopInteropInternal::DesktopHostWindow::GetDCompFieldRectPixels()
     return rect;
 }
 
-bool DesktopInteropInternal::DesktopHostWindow::IsPointInsideRect(
-    const RECT& rect, LONG x, LONG y) const
+bool DesktopInteropInternal::DesktopHostWindow::IsPointInsideRect(const RECT& rect, LONG x, LONG y) const
 {
     return x >= rect.left && x < rect.right && y >= rect.top && y < rect.bottom;
 }
@@ -733,39 +746,30 @@ void DesktopInteropInternal::DesktopHostWindow::ClampDCompOverlayHandle()
     const RECT fieldRect = GetDCompFieldRectPixels();
     if (!dcompOverlayHandleInitialized)
     {
-        dcompOverlayHandleX = Lerp(static_cast<float>(fieldRect.left),
-                                   static_cast<float>(fieldRect.right), 0.58f);
-        dcompOverlayHandleY = Lerp(static_cast<float>(fieldRect.bottom),
-                                   static_cast<float>(fieldRect.top), 0.46f);
+        dcompOverlayHandleX = Lerp(static_cast<float>(fieldRect.left), static_cast<float>(fieldRect.right), 0.58f);
+        dcompOverlayHandleY = Lerp(static_cast<float>(fieldRect.bottom), static_cast<float>(fieldRect.top), 0.46f);
         dcompOverlayHandleInitialized = true;
     }
 
-    dcompOverlayHandleX =
-        (std::max)(static_cast<float>(fieldRect.left + 12),
-                   (std::min)(static_cast<float>(fieldRect.right - 12),
-                              dcompOverlayHandleX));
-    dcompOverlayHandleY =
-        (std::max)(static_cast<float>(fieldRect.top + 12),
-                   (std::min)(static_cast<float>(fieldRect.bottom - 12),
-                              dcompOverlayHandleY));
+    dcompOverlayHandleX = (std::max)(static_cast<float>(fieldRect.left + 12),
+                                     (std::min)(static_cast<float>(fieldRect.right - 12), dcompOverlayHandleX));
+    dcompOverlayHandleY = (std::max)(static_cast<float>(fieldRect.top + 12),
+                                     (std::min)(static_cast<float>(fieldRect.bottom - 12), dcompOverlayHandleY));
 }
 
-void DesktopInteropInternal::DesktopHostWindow::UpdateDCompOverlayHoverState(
-    LONG x, LONG y)
+void DesktopInteropInternal::DesktopHostWindow::UpdateDCompOverlayHoverState(LONG x, LONG y)
 {
     dcompMouseX = static_cast<float>(x);
     dcompMouseY = static_cast<float>(y);
     dcompHoverPrimary = IsPointInsideRect(GetDCompPrimaryChipRectPixels(), x, y);
-    dcompHoverSecondary =
-        IsPointInsideRect(GetDCompSecondaryChipRectPixels(), x, y);
+    dcompHoverSecondary = IsPointInsideRect(GetDCompSecondaryChipRectPixels(), x, y);
 
     const float dx = dcompOverlayHandleX - static_cast<float>(x);
     const float dy = dcompOverlayHandleY - static_cast<float>(y);
     dcompHoverHandle = ((dx * dx) + (dy * dy)) <= (18.0f * 18.0f);
 }
 
-void DesktopInteropInternal::DesktopHostWindow::
-    HandleDirectCompositionMouseMove(LONG x, LONG y)
+void DesktopInteropInternal::DesktopHostWindow::HandleDirectCompositionMouseMove(LONG x, LONG y)
 {
     if (!dcompMouseTracking)
     {
@@ -788,8 +792,7 @@ void DesktopInteropInternal::DesktopHostWindow::
     }
 }
 
-void DesktopInteropInternal::DesktopHostWindow::
-    HandleDirectCompositionMouseLeave()
+void DesktopInteropInternal::DesktopHostWindow::HandleDirectCompositionMouseLeave()
 {
     dcompMouseTracking = false;
     dcompMouseInside = false;
@@ -798,8 +801,7 @@ void DesktopInteropInternal::DesktopHostWindow::
     dcompHoverHandle = false;
 }
 
-void DesktopInteropInternal::DesktopHostWindow::
-    HandleDirectCompositionLButtonDown(LONG x, LONG y)
+void DesktopInteropInternal::DesktopHostWindow::HandleDirectCompositionLButtonDown(LONG x, LONG y)
 {
     UpdateDCompOverlayHoverState(x, y);
 
@@ -811,8 +813,7 @@ void DesktopInteropInternal::DesktopHostWindow::
     {
         dcompOverlayLinkBoost = !dcompOverlayLinkBoost;
     }
-    else if (dcompHoverHandle ||
-             IsPointInsideRect(GetDCompFieldRectPixels(), x, y))
+    else if (dcompHoverHandle || IsPointInsideRect(GetDCompFieldRectPixels(), x, y))
     {
         dcompOverlayDragging = true;
         dcompOverlayHandleX = static_cast<float>(x);
@@ -822,8 +823,7 @@ void DesktopInteropInternal::DesktopHostWindow::
     }
 }
 
-void DesktopInteropInternal::DesktopHostWindow::
-    HandleDirectCompositionLButtonUp(LONG x, LONG y)
+void DesktopInteropInternal::DesktopHostWindow::HandleDirectCompositionLButtonUp(LONG x, LONG y)
 {
     UpdateDCompOverlayHoverState(x, y);
     if (dcompOverlayDragging)
@@ -833,19 +833,16 @@ void DesktopInteropInternal::DesktopHostWindow::
     }
 }
 
-void DesktopInteropInternal::DesktopHostWindow::
-    RenderDirectCompositionOverlay()
+void DesktopInteropInternal::DesktopHostWindow::RenderDirectCompositionOverlay()
 {
-    if (dcompOverlaySwapChain == nullptr ||
-        dcompOverlayRenderTargetView == nullptr ||
+    if (dcompOverlaySwapChain == nullptr || dcompOverlayRenderTargetView == nullptr ||
         dcompOverlayConstantBuffer == nullptr)
     {
         return;
     }
 
     D3D11_MAPPED_SUBRESOURCE mapped{};
-    HRESULT mapHr = d3dContext->Map(dcompOverlayConstantBuffer.get(), 0,
-                                    D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+    HRESULT mapHr = d3dContext->Map(dcompOverlayConstantBuffer.get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
     if (FAILED(mapHr))
     {
         return;
@@ -862,22 +859,19 @@ void DesktopInteropInternal::DesktopHostWindow::
     constants->params[0] = dcompHoverPrimary ? 1.0f : 0.0f;
     constants->params[1] = dcompHoverSecondary ? 1.0f : 0.0f;
     constants->params[2] = dcompOverlayAccentEnabled ? 1.0f : 0.0f;
-    constants->params[3] =
-        dcompOverlayDragging ? 1.0f : (dcompOverlayLinkBoost ? 0.55f : 0.0f);
+    constants->params[3] = dcompOverlayDragging ? 1.0f : (dcompOverlayLinkBoost ? 0.55f : 0.0f);
     d3dContext->Unmap(dcompOverlayConstantBuffer.get(), 0);
 
-    const float clearColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-    d3dContext->ClearRenderTargetView(dcompOverlayRenderTargetView.get(),
-                                      clearColor);
+    const float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+    d3dContext->ClearRenderTargetView(dcompOverlayRenderTargetView.get(), clearColor);
 
-    ID3D11RenderTargetView* renderTargetViews[] = {
-        dcompOverlayRenderTargetView.get()};
+    ID3D11RenderTargetView* renderTargetViews[] = { dcompOverlayRenderTargetView.get() };
     d3dContext->OMSetRenderTargets(1, renderTargetViews, nullptr);
     d3dContext->IASetInputLayout(nullptr);
     d3dContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     d3dContext->VSSetShader(dcompVertexShader.get(), nullptr, 0);
     d3dContext->PSSetShader(dcompOverlayPixelShader.get(), nullptr, 0);
-    ID3D11Buffer* constantBuffers[] = {dcompOverlayConstantBuffer.get()};
+    ID3D11Buffer* constantBuffers[] = { dcompOverlayConstantBuffer.get() };
     d3dContext->PSSetConstantBuffers(0, 1, constantBuffers);
     d3dContext->Draw(3, 0);
 
@@ -886,15 +880,13 @@ void DesktopInteropInternal::DesktopHostWindow::
 
 void DesktopInteropInternal::DesktopHostWindow::RenderDirectCompositionFrame()
 {
-    if (dcompSwapChain == nullptr || dcompRenderTargetView == nullptr ||
-        dcompConstantBuffer == nullptr)
+    if (dcompSwapChain == nullptr || dcompRenderTargetView == nullptr || dcompConstantBuffer == nullptr)
     {
         return;
     }
 
     D3D11_MAPPED_SUBRESOURCE mapped{};
-    HRESULT mapHr = d3dContext->Map(dcompConstantBuffer.get(), 0,
-                                    D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+    HRESULT mapHr = d3dContext->Map(dcompConstantBuffer.get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
     if (FAILED(mapHr))
     {
         return;
@@ -927,13 +919,13 @@ void DesktopInteropInternal::DesktopHostWindow::RenderDirectCompositionFrame()
     viewport.MaxDepth = 1.0f;
     d3dContext->RSSetViewports(1, &viewport);
 
-    ID3D11RenderTargetView* renderTargetViews[] = {dcompRenderTargetView.get()};
+    ID3D11RenderTargetView* renderTargetViews[] = { dcompRenderTargetView.get() };
     d3dContext->OMSetRenderTargets(1, renderTargetViews, nullptr);
     d3dContext->IASetInputLayout(nullptr);
     d3dContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     d3dContext->VSSetShader(dcompVertexShader.get(), nullptr, 0);
     d3dContext->PSSetShader(dcompPixelShader.get(), nullptr, 0);
-    ID3D11Buffer* constantBuffers[] = {dcompConstantBuffer.get()};
+    ID3D11Buffer* constantBuffers[] = { dcompConstantBuffer.get() };
     d3dContext->PSSetConstantBuffers(0, 1, constantBuffers);
     d3dContext->Draw(3, 0);
 

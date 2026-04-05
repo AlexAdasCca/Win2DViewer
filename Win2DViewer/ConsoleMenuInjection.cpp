@@ -17,10 +17,11 @@
 namespace
 {
     using NtGetNextProcessFn = NTSTATUS(NTAPI*)(HANDLE, ACCESS_MASK, ULONG, ULONG, PHANDLE);
-    using NtCreateThreadExFn = NTSTATUS(NTAPI*)(PHANDLE, ACCESS_MASK, POBJECT_ATTRIBUTES, HANDLE, PVOID, PVOID, ULONG, SIZE_T, SIZE_T, SIZE_T, PVOID);
+    using NtCreateThreadExFn = NTSTATUS(
+        NTAPI*)(PHANDLE, ACCESS_MASK, POBJECT_ATTRIBUTES, HANDLE, PVOID, PVOID, ULONG, SIZE_T, SIZE_T, SIZE_T, PVOID);
     using NtQueryInformationProcessFn = NTSTATUS(NTAPI*)(HANDLE, PROCESSINFOCLASS, PVOID, ULONG, PULONG);
-    constexpr ACCESS_MASK kInjectionAccess =
-        PROCESS_CREATE_THREAD | PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_OPERATION | PROCESS_VM_WRITE | PROCESS_VM_READ;
+    constexpr ACCESS_MASK kInjectionAccess = PROCESS_CREATE_THREAD | PROCESS_QUERY_LIMITED_INFORMATION |
+                                             PROCESS_VM_OPERATION | PROCESS_VM_WRITE | PROCESS_VM_READ;
     constexpr ACCESS_MASK kEnumerationAccess = PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ;
     // NtGetNextProcess Flags value:
     // PROCESS_GET_NEXT_FLAGS_PREVIOUS_PROCESS = 0x1
@@ -159,7 +160,7 @@ namespace
         return true;
     }
 
-    template <typename AddressType>
+    template<typename AddressType>
     bool ReadRemoteUnicodeString(HANDLE processHandle, AddressType remoteAddress, USHORT byteLength, std::wstring& text)
     {
         if (remoteAddress == 0 || byteLength == 0)
@@ -170,12 +171,11 @@ namespace
 
         std::vector<wchar_t> buffer((byteLength / sizeof(wchar_t)) + 1, L'\0');
         SIZE_T bytesRead = 0;
-        if (!::ReadProcessMemory(
-                processHandle,
-                reinterpret_cast<LPCVOID>(static_cast<ULONG_PTR>(remoteAddress)),
-                buffer.data(),
-                byteLength,
-                &bytesRead))
+        if (!::ReadProcessMemory(processHandle,
+                                 reinterpret_cast<LPCVOID>(static_cast<ULONG_PTR>(remoteAddress)),
+                                 buffer.data(),
+                                 byteLength,
+                                 &bytesRead))
         {
             return false;
         }
@@ -184,41 +184,43 @@ namespace
         return true;
     }
 
-    bool ReadProcessPebStrings(
-        HANDLE processHandle,
-        NtQueryInformationProcessFn ntQueryInformationProcess,
-        std::wstring& imagePath,
-        std::wstring& commandLine)
+    bool ReadProcessPebStrings(HANDLE processHandle,
+                               NtQueryInformationProcessFn ntQueryInformationProcess,
+                               std::wstring& imagePath,
+                               std::wstring& commandLine)
     {
         imagePath.clear();
         commandLine.clear();
 
         ULONG_PTR wow64Peb = 0;
         if (NT_SUCCESS(ntQueryInformationProcess(
-                processHandle,
-                ProcessWow64Information,
-                &wow64Peb,
-                sizeof(wow64Peb),
-                nullptr)) &&
+                processHandle, ProcessWow64Information, &wow64Peb, sizeof(wow64Peb), nullptr)) &&
             wow64Peb != 0)
         {
             PebPartial32 peb32{};
-            if (!::ReadProcessMemory(processHandle, reinterpret_cast<LPCVOID>(wow64Peb), &peb32, sizeof(peb32), nullptr))
+            if (!::ReadProcessMemory(
+                    processHandle, reinterpret_cast<LPCVOID>(wow64Peb), &peb32, sizeof(peb32), nullptr))
             {
                 return false;
             }
 
             RtlUserProcessParametersPartial32 params32{};
-            if (!::ReadProcessMemory(processHandle, reinterpret_cast<LPCVOID>(static_cast<ULONG_PTR>(peb32.ProcessParameters)), &params32, sizeof(params32), nullptr))
+            if (!::ReadProcessMemory(processHandle,
+                                     reinterpret_cast<LPCVOID>(static_cast<ULONG_PTR>(peb32.ProcessParameters)),
+                                     &params32,
+                                     sizeof(params32),
+                                     nullptr))
             {
                 return false;
             }
 
-            if (!ReadRemoteUnicodeString(processHandle, params32.ImagePathName.Buffer, params32.ImagePathName.Length, imagePath))
+            if (!ReadRemoteUnicodeString(
+                    processHandle, params32.ImagePathName.Buffer, params32.ImagePathName.Length, imagePath))
             {
                 return false;
             }
-            if (!ReadRemoteUnicodeString(processHandle, params32.CommandLine.Buffer, params32.CommandLine.Length, commandLine))
+            if (!ReadRemoteUnicodeString(
+                    processHandle, params32.CommandLine.Buffer, params32.CommandLine.Length, commandLine))
             {
                 return false;
             }
@@ -226,7 +228,8 @@ namespace
         }
 
         ProcessBasicInformationData info{};
-        if (!NT_SUCCESS(ntQueryInformationProcess(processHandle, ProcessBasicInformation, &info, sizeof(info), nullptr)))
+        if (!NT_SUCCESS(
+                ntQueryInformationProcess(processHandle, ProcessBasicInformation, &info, sizeof(info), nullptr)))
         {
             return false;
         }
@@ -238,29 +241,39 @@ namespace
         }
 
         RtlUserProcessParametersPartial64 params64{};
-        if (!::ReadProcessMemory(processHandle, reinterpret_cast<LPCVOID>(static_cast<ULONG_PTR>(peb64.ProcessParameters)), &params64, sizeof(params64), nullptr))
+        if (!::ReadProcessMemory(processHandle,
+                                 reinterpret_cast<LPCVOID>(static_cast<ULONG_PTR>(peb64.ProcessParameters)),
+                                 &params64,
+                                 sizeof(params64),
+                                 nullptr))
         {
             return false;
         }
 
-        if (!ReadRemoteUnicodeString(processHandle, params64.ImagePathName.Buffer, params64.ImagePathName.Length, imagePath))
+        if (!ReadRemoteUnicodeString(
+                processHandle, params64.ImagePathName.Buffer, params64.ImagePathName.Length, imagePath))
         {
             return false;
         }
-        if (!ReadRemoteUnicodeString(processHandle, params64.CommandLine.Buffer, params64.CommandLine.Length, commandLine))
+        if (!ReadRemoteUnicodeString(
+                processHandle, params64.CommandLine.Buffer, params64.CommandLine.Length, commandLine))
         {
             return false;
         }
         return true;
     }
 
-    bool TryQueryBasicProcessInfo(HANDLE processHandle, NtQueryInformationProcessFn ntQueryInformationProcess, ProcessBasicInformationData& info)
+    bool TryQueryBasicProcessInfo(HANDLE processHandle,
+                                  NtQueryInformationProcessFn ntQueryInformationProcess,
+                                  ProcessBasicInformationData& info)
     {
         info = {};
-        const NTSTATUS queryStatus = ntQueryInformationProcess(processHandle, ProcessBasicInformation, &info, sizeof(info), nullptr);
+        const NTSTATUS queryStatus =
+            ntQueryInformationProcess(processHandle, ProcessBasicInformation, &info, sizeof(info), nullptr);
         if (!NT_SUCCESS(queryStatus))
         {
-            LogLine(L"[ConsoleMenuInjection] NtQueryInformationProcess(ProcessBasicInformation) failed: " + FormatNtStatus(queryStatus));
+            LogLine(L"[ConsoleMenuInjection] NtQueryInformationProcess(ProcessBasicInformation) failed: " +
+                    FormatNtStatus(queryStatus));
             return false;
         }
         return true;
@@ -309,17 +322,15 @@ namespace
         }
 
         DiagnosticConsole::LineBuilder line;
-        line << L"[ConsoleMenuInjection] Candidate pid=" << ::GetProcessId(processHandle)
-             << L" parent=" << static_cast<DWORD>(info.InheritedFromUniqueProcessId)
-             << L" image=" << (!imagePath.empty() ? imagePath : queryImagePath)
-             << L" cmd=" << commandLine;
+        line << L"[ConsoleMenuInjection] Candidate pid=" << ::GetProcessId(processHandle) << L" parent="
+             << static_cast<DWORD>(info.InheritedFromUniqueProcessId) << L" image="
+             << (!imagePath.empty() ? imagePath : queryImagePath) << L" cmd=" << commandLine;
         LogLine(line.str());
 
         if (!commandLine.empty())
         {
-            const bool commandLineMatches =
-                commandLine.find(L"conhost.exe") != std::wstring::npos ||
-                commandLine.find(L"Console Window Host") != std::wstring::npos;
+            const bool commandLineMatches = commandLine.find(L"conhost.exe") != std::wstring::npos ||
+                                            commandLine.find(L"Console Window Host") != std::wstring::npos;
             if (!commandLineMatches)
             {
                 return false;
@@ -338,16 +349,11 @@ namespace
         // - ProcessInformation: receives ULONG_PTR payload (PID + low-bit flags)
         // - ProcessInformationLength: sizeof(ULONG_PTR)
         const NTSTATUS status = ntQueryInformationProcess(
-            ::GetCurrentProcess(),
-            kProcessConsoleHostProcessClass,
-            &rawConsoleHost,
-            sizeof(rawConsoleHost),
-            nullptr);
+            ::GetCurrentProcess(), kProcessConsoleHostProcessClass, &rawConsoleHost, sizeof(rawConsoleHost), nullptr);
         if (!NT_SUCCESS(status) || rawConsoleHost == 0)
         {
             std::wstringstream ss;
-            ss << L"[ConsoleMenuInjection] ProcessConsoleHostProcess query failed, status="
-               << FormatNtStatus(status)
+            ss << L"[ConsoleMenuInjection] ProcessConsoleHostProcess query failed, status=" << FormatNtStatus(status)
                << L" raw=0x" << std::hex << rawConsoleHost;
             LogLine(ss.str());
             return nullptr;
@@ -355,8 +361,7 @@ namespace
 
         const DWORD hostPid = static_cast<DWORD>(rawConsoleHost & kProcessConsoleHostPidMask);
         std::wstringstream pidLine;
-        pidLine << L"[ConsoleMenuInjection] ProcessConsoleHostProcess raw=0x"
-                << std::hex << rawConsoleHost
+        pidLine << L"[ConsoleMenuInjection] ProcessConsoleHostProcess raw=0x" << std::hex << rawConsoleHost
                 << L" maskedPid=" << std::dec << hostPid;
         LogLine(pidLine.str());
         if (hostPid == 0)
@@ -372,7 +377,8 @@ namespace
 
         ProcessBasicInformationData info{};
         const bool hasBasicInfo = TryQueryBasicProcessInfo(verifyHandle, ntQueryInformationProcess, info);
-        const bool isChildProcess = hasBasicInfo && static_cast<DWORD>(info.InheritedFromUniqueProcessId) == ::GetCurrentProcessId();
+        const bool isChildProcess =
+            hasBasicInfo && static_cast<DWORD>(info.InheritedFromUniqueProcessId) == ::GetCurrentProcessId();
         const bool isConhostImage = IsConhostImagePath(verifyHandle);
         ::CloseHandle(verifyHandle);
 
@@ -386,8 +392,8 @@ namespace
         if (injectHandle == nullptr)
         {
             std::wstringstream ss;
-            ss << L"[ConsoleMenuInjection] OpenProcess(injection) failed for hostPid=" << hostPid
-               << L" gle=" << ::GetLastError();
+            ss << L"[ConsoleMenuInjection] OpenProcess(injection) failed for hostPid=" << hostPid << L" gle="
+               << ::GetLastError();
             LogLine(ss.str());
             return nullptr;
         }
@@ -404,7 +410,8 @@ namespace
         }
 
         const auto ntGetNextProcess = reinterpret_cast<NtGetNextProcessFn>(::GetProcAddress(ntdll, "NtGetNextProcess"));
-        const auto ntQueryInformationProcess = reinterpret_cast<NtQueryInformationProcessFn>(::GetProcAddress(ntdll, "NtQueryInformationProcess"));
+        const auto ntQueryInformationProcess =
+            reinterpret_cast<NtQueryInformationProcessFn>(::GetProcAddress(ntdll, "NtQueryInformationProcess"));
         if (ntGetNextProcess == nullptr || ntQueryInformationProcess == nullptr)
         {
             LogLine(L"[ConsoleMenuInjection] Failed to resolve NtGetNextProcess or NtQueryInformationProcess.");
@@ -435,11 +442,7 @@ namespace
             // - Flags: PREVIOUS_PROCESS for reverse traversal
             // - NewProcessHandle: receives next cursor
             const NTSTATUS nextStatus = ntGetNextProcess(
-                currentHandle,
-                kEnumerationAccess,
-                0,
-                kProcessGetNextFlagsPreviousProcess,
-                &nextHandle);
+                currentHandle, kEnumerationAccess, 0, kProcessGetNextFlagsPreviousProcess, &nextHandle);
 
             if (currentHandle != nullptr)
             {
@@ -528,18 +531,17 @@ namespace
                 break;
             }
 
-            const NTSTATUS createStatus = ntCreateThreadEx(
-                &remoteThread,
-                THREAD_ALL_ACCESS,
-                nullptr,
-                processHandle,
-                reinterpret_cast<PTHREAD_START_ROUTINE>(loadLibraryW),
-                remoteBuffer,
-                0,
-                0,
-                0,
-                0,
-                nullptr);
+            const NTSTATUS createStatus = ntCreateThreadEx(&remoteThread,
+                                                           THREAD_ALL_ACCESS,
+                                                           nullptr,
+                                                           processHandle,
+                                                           reinterpret_cast<PTHREAD_START_ROUTINE>(loadLibraryW),
+                                                           remoteBuffer,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           0,
+                                                           nullptr);
             if (!NT_SUCCESS(createStatus))
             {
                 LogLine(L"[ConsoleMenuInjection] NtCreateThreadEx failed: " + FormatNtStatus(createStatus));
@@ -556,15 +558,14 @@ namespace
             if (!::GetExitCodeThread(remoteThread, &exitCode) || exitCode == 0)
             {
                 std::wstringstream ss;
-                ss << L"[ConsoleMenuInjection] Remote LoadLibraryW exitCode=" << exitCode
-                   << L" gle=" << ::GetLastError();
+                ss << L"[ConsoleMenuInjection] Remote LoadLibraryW exitCode=" << exitCode << L" gle="
+                   << ::GetLastError();
                 LogLine(ss.str());
                 break;
             }
 
             std::wstringstream ss;
-            ss << L"[ConsoleMenuInjection] Remote LoadLibraryW succeeded. module=0x"
-               << std::hex << exitCode;
+            ss << L"[ConsoleMenuInjection] Remote LoadLibraryW succeeded. module=0x" << std::hex << exitCode;
             LogLine(ss.str());
             success = true;
         } while (false);

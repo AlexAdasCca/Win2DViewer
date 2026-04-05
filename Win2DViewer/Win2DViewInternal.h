@@ -61,8 +61,7 @@ namespace Win2DViewInternal
     Win2DViewNs::wfn::float3x2 IdentityTransform();
     int RoundToInt(double value);
 
-    std::wstring ReplaceString(std::wstring subject, std::wstring const& search,
-                               std::wstring const& replace);
+    std::wstring ReplaceString(std::wstring subject, std::wstring const& search, std::wstring const& replace);
     std::wstring Trim(std::wstring value);
     std::wstring NormalizeFontFamilyName(std::wstring fontFamily);
 
@@ -71,11 +70,9 @@ namespace Win2DViewInternal
     void DebugPrintLine(std::wstring const& line);
 
     std::wstring InlineSvgClassStyles(std::wstring svgText);
-    std::vector<CWin2DView::SvgTextOverlayItem>
-    ParseSvgTextOverlays(std::wstring const& svgText);
+    std::vector<CWin2DView::SvgTextOverlayItem> ParseSvgTextOverlays(std::wstring const& svgText);
 
     std::wstring UTF8ToWide(char const* input);
     float GetFontSize(float width);
-    Win2DViewNs::wr::com_ptr<::IDXGIDevice>
-    GetDXGIDevice(Win2DViewNs::mgc::CanvasDevice& device);
+    Win2DViewNs::wr::com_ptr<::IDXGIDevice> GetDXGIDevice(Win2DViewNs::mgc::CanvasDevice& device);
 } // namespace Win2DViewInternal

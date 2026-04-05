@@ -38,10 +38,8 @@ void CWin2DView::RefreshDocument()
 
     RECT clientRect{};
     GetClientRect(&clientRect);
-    const int clientWidth =
-        std::max(1, static_cast<int>(clientRect.right - clientRect.left));
-    const int clientHeight =
-        std::max(1, static_cast<int>(clientRect.bottom - clientRect.top));
+    const int clientWidth = std::max(1, static_cast<int>(clientRect.right - clientRect.left));
+    const int clientHeight = std::max(1, static_cast<int>(clientRect.bottom - clientRect.top));
 
     if (document == nullptr || document->Empty())
     {
@@ -69,8 +67,12 @@ void CWin2DView::RefreshDocument()
 
     if (LoadSvg())
     {
-        Redraw(clientWidth / 4.0f, clientHeight / 4.0f, 300.0f, 300.0f,
-               static_cast<float>(clientWidth), static_cast<float>(clientHeight),
+        Redraw(clientWidth / 4.0f,
+               clientHeight / 4.0f,
+               300.0f,
+               300.0f,
+               static_cast<float>(clientWidth),
+               static_cast<float>(clientHeight),
                currentDpi);
     }
 }

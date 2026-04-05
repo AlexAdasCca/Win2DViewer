@@ -27,7 +27,8 @@ void DisplaySyncHelper::Initialize()
         directDrawModule = LoadLibrary(L"ddraw.dll");
         if (directDrawModule != 0)
         {
-            typedef HRESULT(WINAPI * DIRECTDRAWCREATEEX)(GUID FAR * lpGuid, LPVOID * lplpDD, REFIID iid, IUnknown FAR * pUnkOuter);
+            typedef HRESULT(WINAPI * DIRECTDRAWCREATEEX)(
+                GUID FAR * lpGuid, LPVOID * lplpDD, REFIID iid, IUnknown FAR * pUnkOuter);
             DIRECTDRAWCREATEEX ddc = (DIRECTDRAWCREATEEX)GetProcAddress(directDrawModule, "DirectDrawCreateEx");
             if (ddc != 0)
             {

@@ -24,11 +24,10 @@ namespace ConsoleMenuHook
 
         void ShowAboutDialog(HWND ownerWindow)
         {
-            ::MessageBoxW(
-                ownerWindow,
-                L"Win2DViewer Debug Console\nInjected into conhost for system menu extension.",
-                L"Win2DViewer",
-                MB_OK | MB_ICONINFORMATION);
+            ::MessageBoxW(ownerWindow,
+                          L"Win2DViewer Debug Console\nInjected into conhost for system menu extension.",
+                          L"Win2DViewer",
+                          MB_OK | MB_ICONINFORMATION);
         }
 
         BOOL CALLBACK FindConsoleWindowEnumProc(HWND windowHandle, LPARAM lParam)
@@ -66,13 +65,10 @@ namespace ConsoleMenuHook
             if (context->Verbose)
             {
                 DiagnosticConsole::LineBuilder line;
-                line << L"[ConsoleMenuHook] Enum candidate source=" << context->Source
-                     << L" hwnd=0x" << std::hex << reinterpret_cast<ULONG_PTR>(windowHandle)
-                     << L" pid=" << std::dec << processId
-                     << L" parentPid=" << context->ParentProcessId
-                     << L" selfPid=" << context->CurrentProcessId
-                     << L" ownerMatch=" << (matchesOwnerProcess ? 1 : 0)
-                     << L" selfMatch=" << (matchesConhostProcess ? 1 : 0);
+                line << L"[ConsoleMenuHook] Enum candidate source=" << context->Source << L" hwnd=0x" << std::hex
+                     << reinterpret_cast<ULONG_PTR>(windowHandle) << L" pid=" << std::dec << processId << L" parentPid="
+                     << context->ParentProcessId << L" selfPid=" << context->CurrentProcessId << L" ownerMatch="
+                     << (matchesOwnerProcess ? 1 : 0) << L" selfMatch=" << (matchesConhostProcess ? 1 : 0);
                 LogLine(line.str());
             }
 
@@ -104,23 +100,19 @@ namespace ConsoleMenuHook
             topMostItem.shortcut->virtualKey = 'T';
             topMostItem.shortcut->ctrl = true;
             topMostItem.shortcut->alt = true;
-            topMostItem.onInvoke = [](HWND ownerWindow)
-            {
+            topMostItem.onInvoke = [](HWND ownerWindow) {
                 auto& state = GetRuntimeState();
                 state.ConsoleWindowTopMost = !state.ConsoleWindowTopMost;
-                ::SetWindowPos(
-                    ownerWindow,
-                    state.ConsoleWindowTopMost ? HWND_TOPMOST : HWND_NOTOPMOST,
-                    0,
-                    0,
-                    0,
-                    0,
-                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                ::SetWindowPos(ownerWindow,
+                               state.ConsoleWindowTopMost ? HWND_TOPMOST : HWND_NOTOPMOST,
+                               0,
+                               0,
+                               0,
+                               0,
+                               SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
             };
-            topMostItem.isChecked = []()
-            { return GetRuntimeState().ConsoleWindowTopMost; };
-            topMostItem.isEnabled = []()
-            { return true; };
+            topMostItem.isChecked = []() { return GetRuntimeState().ConsoleWindowTopMost; };
+            topMostItem.isEnabled = []() { return true; };
 
             SystemMenu::MenuItemSpec aboutItem{};
             aboutItem.id = SystemMenu::kCommandAbout;
@@ -128,10 +120,8 @@ namespace ConsoleMenuHook
             aboutItem.shortcut = SystemMenu::ShortcutBinding{};
             aboutItem.shortcut->virtualKey = VK_F1;
             aboutItem.shortcut->alt = true;
-            aboutItem.onInvoke = [](HWND ownerWindow)
-            { ShowAboutDialog(ownerWindow); };
-            aboutItem.isEnabled = []()
-            { return true; };
+            aboutItem.onInvoke = [](HWND ownerWindow) { ShowAboutDialog(ownerWindow); };
+            aboutItem.isEnabled = []() { return true; };
 
             std::wstring errorMessage;
             if (!runtimeState.ConsoleMenuHost.AddItem(separator, &errorMessage) ||
@@ -147,8 +137,7 @@ namespace ConsoleMenuHook
 
         LRESULT CALLBACK ConsoleWindowLongPtrProc(HWND windowHandle, UINT message, WPARAM wParam, LPARAM lParam)
         {
-            const auto callOriginal = [&]() -> LRESULT
-            {
+            const auto callOriginal = [&]() -> LRESULT {
                 auto& runtimeState = GetRuntimeState();
                 const WNDPROC originalProc = runtimeState.ConsoleWindowOriginalWndProc.load();
                 if (originalProc != nullptr && originalProc != &ConsoleWindowLongPtrProc)
@@ -241,9 +230,11 @@ namespace ConsoleMenuHook
 
             auto& runtimeState = GetRuntimeState();
             const bool topMostExists =
-                ::GetMenuState(systemMenu, static_cast<UINT>(SystemMenu::kCommandWindowTopMost), MF_BYCOMMAND) != static_cast<UINT>(-1);
+                ::GetMenuState(systemMenu, static_cast<UINT>(SystemMenu::kCommandWindowTopMost), MF_BYCOMMAND) !=
+                static_cast<UINT>(-1);
             const bool aboutExists =
-                ::GetMenuState(systemMenu, static_cast<UINT>(SystemMenu::kCommandAbout), MF_BYCOMMAND) != static_cast<UINT>(-1);
+                ::GetMenuState(systemMenu, static_cast<UINT>(SystemMenu::kCommandAbout), MF_BYCOMMAND) !=
+                static_cast<UINT>(-1);
 
             if (topMostExists || aboutExists)
             {
@@ -278,13 +269,10 @@ namespace ConsoleMenuHook
         (void)::EnumWindows(&FindConsoleWindowEnumProc, reinterpret_cast<LPARAM>(&context));
 
         DiagnosticConsole::LineBuilder summary;
-        summary << L"[ConsoleMenuHook] Enum summary source=" << context.Source
-                << L" found=" << (context.FoundWindow != nullptr ? 1 : 0)
-                << L" consoleClassCount=" << context.ConsoleClassWindows
-                << L" rejected=" << context.RejectedWindows
-                << L" ownerPidMatches=" << context.MatchedOwnerPid
-                << L" selfPidMatches=" << context.MatchedSelfPid
-                << L" parentPid=" << context.ParentProcessId
+        summary << L"[ConsoleMenuHook] Enum summary source=" << context.Source << L" found="
+                << (context.FoundWindow != nullptr ? 1 : 0) << L" consoleClassCount=" << context.ConsoleClassWindows
+                << L" rejected=" << context.RejectedWindows << L" ownerPidMatches=" << context.MatchedOwnerPid
+                << L" selfPidMatches=" << context.MatchedSelfPid << L" parentPid=" << context.ParentProcessId
                 << L" selfPid=" << context.CurrentProcessId;
         LogLine(summary.str());
 
@@ -335,10 +323,8 @@ namespace ConsoleMenuHook
         //     3) PostMessage(hwnd, WM_NULL, 0, 0);
         //     4) In the hook callback (owner thread), call SetWindowSubclass(hwnd,...).
         ::SetLastError(0);
-        const LONG_PTR previousProcValue = ::SetWindowLongPtrW(
-            windowHandle,
-            GWLP_WNDPROC,
-            reinterpret_cast<LONG_PTR>(&ConsoleWindowLongPtrProc));
+        const LONG_PTR previousProcValue =
+            ::SetWindowLongPtrW(windowHandle, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(&ConsoleWindowLongPtrProc));
         if (previousProcValue == 0 && ::GetLastError() != 0)
         {
             DiagnosticConsole::LineBuilder line;
@@ -404,7 +390,8 @@ namespace ConsoleMenuHook
             {
                 return 0;
             }
-            if (runtimeState.DiscoveryStopEvent != nullptr && ::WaitForSingleObject(runtimeState.DiscoveryStopEvent, 0) == WAIT_OBJECT_0)
+            if (runtimeState.DiscoveryStopEvent != nullptr &&
+                ::WaitForSingleObject(runtimeState.DiscoveryStopEvent, 0) == WAIT_OBJECT_0)
             {
                 return 0;
             }
@@ -412,13 +399,13 @@ namespace ConsoleMenuHook
             if (runtimeState.ConsoleIntegrateInProgress.load())
             {
                 DWORD waitedMs = 0;
-                while (!runtimeState.ConsoleWindowSubclassed.load() &&
-                       runtimeState.ConsoleIntegrateInProgress.load() &&
+                while (!runtimeState.ConsoleWindowSubclassed.load() && runtimeState.ConsoleIntegrateInProgress.load() &&
                        waitedMs < kIntegrateWaitBudgetMs)
                 {
                     if (runtimeState.DiscoveryStopEvent != nullptr)
                     {
-                        if (::WaitForSingleObject(runtimeState.DiscoveryStopEvent, kIntegrateWaitSliceMs) == WAIT_OBJECT_0)
+                        if (::WaitForSingleObject(runtimeState.DiscoveryStopEvent, kIntegrateWaitSliceMs) ==
+                            WAIT_OBJECT_0)
                         {
                             return 0;
                         }
@@ -450,7 +437,8 @@ namespace ConsoleMenuHook
 
             integrateWaitTimeoutLogged = false;
             const bool verbose = (attempt <= 3) || (attempt % 100 == 0);
-            if (HWND consoleWindow = FindConsoleWindowForCurrentProcess(verbose, L"WindowDiscoveryThread"); consoleWindow != nullptr)
+            if (HWND consoleWindow = FindConsoleWindowForCurrentProcess(verbose, L"WindowDiscoveryThread");
+                consoleWindow != nullptr)
             {
                 TryIntegrateConsoleWindow(consoleWindow, L"WindowDiscoveryThread");
                 if (!runtimeState.ConsoleWindowSubclassed.load())
@@ -460,9 +448,9 @@ namespace ConsoleMenuHook
                 }
             }
 
-            const DWORD waitResult = runtimeState.DiscoveryStopEvent != nullptr
-                                         ? ::WaitForSingleObject(runtimeState.DiscoveryStopEvent, 20)
-                                         : WAIT_TIMEOUT;
+            const DWORD waitResult = runtimeState.DiscoveryStopEvent != nullptr ?
+                                         ::WaitForSingleObject(runtimeState.DiscoveryStopEvent, 20) :
+                                         WAIT_TIMEOUT;
             if (waitResult == WAIT_OBJECT_0)
             {
                 return 0;

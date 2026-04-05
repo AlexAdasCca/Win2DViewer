@@ -1,9 +1,8 @@
 ﻿
 #include <windows.h>
 
-extern "C"
-{
-    HRESULT WINRT_RoGetActivationFactory2(void* classId, GUID const& iid, void** factory) noexcept;
+extern "C" {
+HRESULT WINRT_RoGetActivationFactory2(void* classId, GUID const& iid, void** factory) noexcept;
 }
 
 #ifdef _M_IX86

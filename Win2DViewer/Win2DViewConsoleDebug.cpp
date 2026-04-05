@@ -7,16 +7,14 @@ void CWin2DView::SetConsoleDebugEnabled(bool enabled) noexcept
     consoleDebugEnabled = enabled;
     if (::IsWindow(m_hWnd))
     {
-        ConsoleDebugLifecycle::SetStateSyncTargetWindow(
-            ::GetAncestor(m_hWnd, GA_ROOT));
+        ConsoleDebugLifecycle::SetStateSyncTargetWindow(::GetAncestor(m_hWnd, GA_ROOT));
     }
     if (consoleDebugEnabled)
     {
         Win2DViewInternal::EnsureDebugConsole();
         std::wstringstream ss;
-        ss << L"[ConsoleDebug] enabled=1 overlays=" << svgTextOverlays.size()
-           << L" svgDoc=" << (svgDocument != nullptr ? 1 : 0) << L" dpi="
-           << currentDpi << L" viewSize=" << width << L"x" << height;
+        ss << L"[ConsoleDebug] enabled=1 overlays=" << svgTextOverlays.size() << L" svgDoc="
+           << (svgDocument != nullptr ? 1 : 0) << L" dpi=" << currentDpi << L" viewSize=" << width << L"x" << height;
         Win2DViewInternal::DebugPrintLine(ss.str());
     }
     else

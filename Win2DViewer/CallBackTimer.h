@@ -7,11 +7,8 @@
 
 class CallBackTimer
 {
-  public:
-    CallBackTimer()
-        : executeFlag(false)
-    {
-    }
+public:
+    CallBackTimer() : executeFlag(false) {}
 
     ~CallBackTimer()
     {
@@ -39,8 +36,7 @@ class CallBackTimer
         }
 
         executeFlag.store(true, std::memory_order_release);
-        workerThread = std::thread([this, interval, func]()
-        {
+        workerThread = std::thread([this, interval, func]() {
             while (executeFlag.load(std::memory_order_acquire))
             {
                 if (!func())
@@ -49,19 +45,14 @@ class CallBackTimer
                     break;
                 }
 
-                std::this_thread::sleep_for(
-                    std::chrono::nanoseconds(static_cast<long long>(interval * 1000000.0)));
+                std::this_thread::sleep_for(std::chrono::nanoseconds(static_cast<long long>(interval * 1000000.0)));
             }
         });
     }
 
-    bool IsRunning() const noexcept
-    {
-        return (executeFlag.load(std::memory_order_acquire) &&
-                workerThread.joinable());
-    }
+    bool IsRunning() const noexcept { return (executeFlag.load(std::memory_order_acquire) && workerThread.joinable()); }
 
-  private:
+private:
     std::atomic<bool> executeFlag;
     std::thread workerThread;
 };

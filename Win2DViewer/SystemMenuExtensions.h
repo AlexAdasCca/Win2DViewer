@@ -147,20 +147,14 @@ namespace SystemMenu
                 return false;
             }
 
-            const auto IsPressed = [](int vk) -> bool
-            {
-                return (::GetKeyState(vk) & 0x8000) != 0;
-            };
+            const auto IsPressed = [](int vk) -> bool { return (::GetKeyState(vk) & 0x8000) != 0; };
 
             const bool ctrlPressed = IsPressed(VK_CONTROL);
             const bool altPressed = IsPressed(VK_MENU);
             const bool shiftPressed = IsPressed(VK_SHIFT);
             const bool winPressed = IsPressed(VK_LWIN) || IsPressed(VK_RWIN);
 
-            return ctrlPressed == ctrl &&
-                   altPressed == alt &&
-                   shiftPressed == shift &&
-                   winPressed == win;
+            return ctrlPressed == ctrl && altPressed == alt && shiftPressed == shift && winPressed == win;
         }
     };
 
@@ -197,16 +191,10 @@ namespace SystemMenu
 
     class MenuHost
     {
-      public:
-        explicit MenuHost(std::wstring scopeName)
-            : scopeName_(std::move(scopeName))
-        {
-        }
+    public:
+        explicit MenuHost(std::wstring scopeName) : scopeName_(std::move(scopeName)) {}
 
-        ~MenuHost()
-        {
-            UnregisterShortcuts();
-        }
+        ~MenuHost() { UnregisterShortcuts(); }
 
         MenuHost(MenuHost const&) = delete;
         MenuHost& operator=(MenuHost const&) = delete;
@@ -255,8 +243,8 @@ namespace SystemMenu
 
         bool RemoveItem(UINT_PTR id)
         {
-            auto it = std::find_if(items_.begin(), items_.end(), [&](MenuItemSpec const& item)
-            { return item.id == id; });
+            auto it =
+                std::find_if(items_.begin(), items_.end(), [&](MenuItemSpec const& item) { return item.id == id; });
             if (it == items_.end())
             {
                 return false;
@@ -268,22 +256,18 @@ namespace SystemMenu
 
         MenuItemSpec* FindItem(UINT_PTR id)
         {
-            auto it = std::find_if(items_.begin(), items_.end(), [&](MenuItemSpec& item)
-            { return item.id == id; });
+            auto it = std::find_if(items_.begin(), items_.end(), [&](MenuItemSpec& item) { return item.id == id; });
             return it != items_.end() ? &(*it) : nullptr;
         }
 
         MenuItemSpec const* FindItem(UINT_PTR id) const
         {
-            auto it = std::find_if(items_.begin(), items_.end(), [&](MenuItemSpec const& item)
-            { return item.id == id; });
+            auto it =
+                std::find_if(items_.begin(), items_.end(), [&](MenuItemSpec const& item) { return item.id == id; });
             return it != items_.end() ? &(*it) : nullptr;
         }
 
-        std::vector<MenuItemSpec> const& Items() const noexcept
-        {
-            return items_;
-        }
+        std::vector<MenuItemSpec> const& Items() const noexcept { return items_; }
 
         void Clear()
         {
@@ -335,7 +319,8 @@ namespace SystemMenu
                     }
                 }
 
-                if (!::InsertMenuItemW(menuHandle, static_cast<UINT>(::GetMenuItemCount(menuHandle)), TRUE, &menuItemInfo))
+                if (!::InsertMenuItemW(
+                        menuHandle, static_cast<UINT>(::GetMenuItemCount(menuHandle)), TRUE, &menuItemInfo))
                 {
                     if (errorMessage != nullptr)
                     {
@@ -367,14 +352,11 @@ namespace SystemMenu
                 const bool enabled = item.isEnabled ? item.isEnabled() : true;
 
                 ::CheckMenuItem(
-                    menuHandle,
-                    static_cast<UINT>(item.id),
-                    MF_BYCOMMAND | (checked ? MF_CHECKED : MF_UNCHECKED));
+                    menuHandle, static_cast<UINT>(item.id), MF_BYCOMMAND | (checked ? MF_CHECKED : MF_UNCHECKED));
 
-                ::EnableMenuItem(
-                    menuHandle,
-                    static_cast<UINT>(item.id),
-                    MF_BYCOMMAND | (enabled ? MF_ENABLED : (MF_DISABLED | MF_GRAYED)));
+                ::EnableMenuItem(menuHandle,
+                                 static_cast<UINT>(item.id),
+                                 MF_BYCOMMAND | (enabled ? MF_ENABLED : (MF_DISABLED | MF_GRAYED)));
             }
         }
 
@@ -422,7 +404,7 @@ namespace SystemMenu
             return false;
         }
 
-      private:
+    private:
         std::wstring BuildMenuText(MenuItemSpec const& item) const
         {
             std::wstring text = item.text;
@@ -521,7 +503,8 @@ namespace SystemMenu
                 {
                     if (errorMessage != nullptr)
                     {
-                        *errorMessage = L"Shortcut conflicts with another menu in this process: " + item.shortcut->ToDisplayString();
+                        *errorMessage = L"Shortcut conflicts with another menu in this process: " +
+                                        item.shortcut->ToDisplayString();
                     }
                     for (std::wstring const& registeredKey : registeredShortcutKeys_)
                     {
@@ -531,7 +514,7 @@ namespace SystemMenu
                     return false;
                 }
 
-                Internal::gShortcutRegistry[key] = Internal::RegisteredShortcut{scopeName_, item.id, item.text};
+                Internal::gShortcutRegistry[key] = Internal::RegisteredShortcut{ scopeName_, item.id, item.text };
                 registeredShortcutKeys_.push_back(key);
             }
 
@@ -552,7 +535,7 @@ namespace SystemMenu
             registeredShortcutKeys_.clear();
         }
 
-      private:
+    private:
         std::wstring scopeName_;
         std::vector<MenuItemSpec> items_;
         mutable std::vector<std::wstring> itemTexts_;

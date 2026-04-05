@@ -67,11 +67,7 @@ namespace ConsoleMenuHook
         // https://ntdoc.m417z.com/process_basic_information
         ProcessBasicInformationData info{};
         const NTSTATUS status = ntQueryInformationProcess(
-            ::GetCurrentProcess(),
-            ProcessBasicInformation,
-            &info,
-            static_cast<ULONG>(sizeof(info)),
-            nullptr);
+            ::GetCurrentProcess(), ProcessBasicInformation, &info, static_cast<ULONG>(sizeof(info)), nullptr);
         if (!NT_SUCCESS(status))
         {
             return 0;
@@ -100,10 +96,8 @@ namespace ConsoleMenuHook
         if (notifyEvent == nullptr)
         {
             DiagnosticConsole::LineBuilder line;
-            line << L"[ConsoleMenuHook] Console close notify open failed. source="
-                 << source
-                 << L" ownerPid=" << ownerPid
-                 << L" gle=" << ::GetLastError();
+            line << L"[ConsoleMenuHook] Console close notify open failed. source=" << source << L" ownerPid="
+                 << ownerPid << L" gle=" << ::GetLastError();
             LogLine(line.str());
             return;
         }
@@ -111,10 +105,8 @@ namespace ConsoleMenuHook
         if (!::SetEvent(notifyEvent))
         {
             DiagnosticConsole::LineBuilder line;
-            line << L"[ConsoleMenuHook] Console close notify SetEvent failed. source="
-                 << source
-                 << L" ownerPid=" << ownerPid
-                 << L" gle=" << ::GetLastError();
+            line << L"[ConsoleMenuHook] Console close notify SetEvent failed. source=" << source << L" ownerPid="
+                 << ownerPid << L" gle=" << ::GetLastError();
             LogLine(line.str());
             ::CloseHandle(notifyEvent);
             return;
@@ -122,9 +114,7 @@ namespace ConsoleMenuHook
 
         ::CloseHandle(notifyEvent);
         DiagnosticConsole::LineBuilder line;
-        line << L"[ConsoleMenuHook] Console close notify sent. source="
-             << source
-             << L" ownerPid=" << ownerPid;
+        line << L"[ConsoleMenuHook] Console close notify sent. source=" << source << L" ownerPid=" << ownerPid;
         LogLine(line.str());
     }
 
@@ -151,8 +141,8 @@ namespace ConsoleMenuHook
         {
             gRuntimeState.ConsoleCloseNotified.store(false);
             DiagnosticConsole::LineBuilder line;
-            line << L"[ConsoleMenuHook] Captured console window hwnd=0x"
-                 << std::hex << reinterpret_cast<ULONG_PTR>(windowHandle);
+            line << L"[ConsoleMenuHook] Captured console window hwnd=0x" << std::hex
+                 << reinterpret_cast<ULONG_PTR>(windowHandle);
             LogLine(line.str());
         }
     }

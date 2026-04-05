@@ -10,22 +10,22 @@
 
 namespace DesktopInteropInternal
 {
-    std::optional<DesktopInteropNs::wus::DispatcherQueueController>
-        gDispatcherQueueController;
-    std::unordered_map<HWND, std::unique_ptr<DesktopHostWindow>>
-        gDesktopHostWindows;
+    std::optional<DesktopInteropNs::wus::DispatcherQueueController> gDispatcherQueueController;
+    std::unordered_map<HWND, std::unique_ptr<DesktopHostWindow>> gDesktopHostWindows;
 
     std::wstring FormatLastErrorMessage(std::wstring_view context)
     {
         const DWORD errorCode = ::GetLastError();
         wchar_t* systemMessage = nullptr;
-        ::FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
-                             FORMAT_MESSAGE_IGNORE_INSERTS,
-                         nullptr, errorCode,
+        ::FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                         nullptr,
+                         errorCode,
                          MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                         reinterpret_cast<LPWSTR>(&systemMessage), 0, nullptr);
+                         reinterpret_cast<LPWSTR>(&systemMessage),
+                         0,
+                         nullptr);
 
-        std::wstring result{context};
+        std::wstring result{ context };
         result += L" failed. GetLastError=" + std::to_wstring(errorCode);
         if (systemMessage != nullptr)
         {
@@ -63,15 +63,11 @@ namespace DesktopInteropInternal
 
     uint32_t PackBgra(uint8_t b, uint8_t g, uint8_t r)
     {
-        return (static_cast<uint32_t>(0xFF) << 24) |
-               (static_cast<uint32_t>(r) << 16) | (static_cast<uint32_t>(g) << 8) |
-               static_cast<uint32_t>(b);
+        return (static_cast<uint32_t>(0xFF) << 24) | (static_cast<uint32_t>(r) << 16) |
+               (static_cast<uint32_t>(g) << 8) | static_cast<uint32_t>(b);
     }
 
-    DesktopHostWindow::DesktopHostWindow(DesktopInterop::DesktopHostBackend backend)
-        : backend(backend)
-    {
-    }
+    DesktopHostWindow::DesktopHostWindow(DesktopInterop::DesktopHostBackend backend) : backend(backend) {}
 
     bool DesktopHostWindow::CreateWindowInstance(std::wstring* errorMessage)
     {
@@ -96,10 +92,18 @@ namespace DesktopInteropInternal
 
         const DWORD exStyle = WS_EX_APPWINDOW | WS_EX_NOREDIRECTIONBITMAP;
         const DWORD style = WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_CLIPSIBLINGS;
-        windowHandle =
-            ::CreateWindowExW(exStyle, kDesktopHostWindowClassName, windowTitle,
-                              style, CW_USEDEFAULT, CW_USEDEFAULT, 960, 640, nullptr,
-                              nullptr, ::GetModuleHandleW(nullptr), this);
+        windowHandle = ::CreateWindowExW(exStyle,
+                                         kDesktopHostWindowClassName,
+                                         windowTitle,
+                                         style,
+                                         CW_USEDEFAULT,
+                                         CW_USEDEFAULT,
+                                         960,
+                                         640,
+                                         nullptr,
+                                         nullptr,
+                                         ::GetModuleHandleW(nullptr),
+                                         this);
 
         if (windowHandle == nullptr)
         {
@@ -132,7 +136,7 @@ namespace DesktopInteropInternal
         }
         catch (DesktopInteropNs::wr::hresult_error const& ex)
         {
-            SetErrorMessage(errorMessage, std::wstring{ex.message().c_str()});
+            SetErrorMessage(errorMessage, std::wstring{ ex.message().c_str() });
             return false;
         }
     }
@@ -142,8 +146,7 @@ namespace DesktopInteropInternal
         return windowHandle;
     }
 
-    LRESULT DesktopHostWindow::HandleMessage(UINT message, WPARAM wParam,
-                                             LPARAM lParam)
+    LRESULT DesktopHostWindow::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam)
     {
         switch (message)
         {
@@ -164,8 +167,7 @@ namespace DesktopInteropInternal
             case WM_MOUSEMOVE:
                 if (backend == DesktopInterop::DesktopHostBackend::DirectComposition)
                 {
-                    HandleDirectCompositionMouseMove(GET_X_LPARAM(lParam),
-                                                     GET_Y_LPARAM(lParam));
+                    HandleDirectCompositionMouseMove(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
                     return 0;
                 }
                 break;
@@ -179,16 +181,14 @@ namespace DesktopInteropInternal
             case WM_LBUTTONDOWN:
                 if (backend == DesktopInterop::DesktopHostBackend::DirectComposition)
                 {
-                    HandleDirectCompositionLButtonDown(GET_X_LPARAM(lParam),
-                                                       GET_Y_LPARAM(lParam));
+                    HandleDirectCompositionLButtonDown(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
                     return 0;
                 }
                 break;
             case WM_LBUTTONUP:
                 if (backend == DesktopInterop::DesktopHostBackend::DirectComposition)
                 {
-                    HandleDirectCompositionLButtonUp(GET_X_LPARAM(lParam),
-                                                     GET_Y_LPARAM(lParam));
+                    HandleDirectCompositionLButtonUp(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
                     return 0;
                 }
                 break;
@@ -213,27 +213,23 @@ namespace DesktopInteropInternal
         return ::DefWindowProcW(windowHandle, message, wParam, lParam);
     }
 
-    LRESULT CALLBACK DesktopHostWindow::WndProc(HWND window, UINT message,
-                                                WPARAM wParam, LPARAM lParam)
+    LRESULT CALLBACK DesktopHostWindow::WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
     {
         DesktopHostWindow* that = nullptr;
         if (message == WM_NCCREATE)
         {
             auto* createStruct = reinterpret_cast<CREATESTRUCTW*>(lParam);
             that = static_cast<DesktopHostWindow*>(createStruct->lpCreateParams);
-            ::SetWindowLongPtrW(window, GWLP_USERDATA,
-                                reinterpret_cast<LONG_PTR>(that));
+            ::SetWindowLongPtrW(window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(that));
             that->windowHandle = window;
         }
         else
         {
-            that = reinterpret_cast<DesktopHostWindow*>(
-                ::GetWindowLongPtrW(window, GWLP_USERDATA));
+            that = reinterpret_cast<DesktopHostWindow*>(::GetWindowLongPtrW(window, GWLP_USERDATA));
         }
 
-        LRESULT result = (that != nullptr)
-                             ? that->HandleMessage(message, wParam, lParam)
-                             : ::DefWindowProcW(window, message, wParam, lParam);
+        LRESULT result = (that != nullptr) ? that->HandleMessage(message, wParam, lParam) :
+                                             ::DefWindowProcW(window, message, wParam, lParam);
 
         if (message == WM_NCDESTROY && that != nullptr)
         {
@@ -283,55 +279,45 @@ namespace DesktopInteropInternal
     }
 } // namespace DesktopInteropInternal
 
-DesktopInteropNs::wus::DispatcherQueueController
-DesktopInterop::CreateDispatcherQueueControllerForCurrentThread()
+DesktopInteropNs::wus::DispatcherQueueController DesktopInterop::CreateDispatcherQueueControllerForCurrentThread()
 {
     namespace abi = ABI::Windows::System;
 
-    DispatcherQueueOptions options{sizeof(DispatcherQueueOptions),
-                                   DQTYPE_THREAD_CURRENT, DQTAT_COM_STA};
+    DispatcherQueueOptions options{ sizeof(DispatcherQueueOptions), DQTYPE_THREAD_CURRENT, DQTAT_COM_STA };
 
-    DesktopInteropNs::wus::DispatcherQueueController controller{nullptr};
+    DesktopInteropNs::wus::DispatcherQueueController controller{ nullptr };
     DesktopInteropNs::wr::check_hresult(::CreateDispatcherQueueController(
-        options, reinterpret_cast<abi::IDispatcherQueueController**>(
-                     DesktopInteropNs::wr::put_abi(controller))));
+        options, reinterpret_cast<abi::IDispatcherQueueController**>(DesktopInteropNs::wr::put_abi(controller))));
     return controller;
 }
 
-DesktopInteropNs::wus::DispatcherQueueController
-DesktopInterop::EnsureDispatcherQueueControllerForCurrentThread()
+DesktopInteropNs::wus::DispatcherQueueController DesktopInterop::EnsureDispatcherQueueControllerForCurrentThread()
 {
-    if (DesktopInteropNs::wus::DispatcherQueue::GetForCurrentThread() !=
-        nullptr)
+    if (DesktopInteropNs::wus::DispatcherQueue::GetForCurrentThread() != nullptr)
     {
         if (!DesktopInteropInternal::gDispatcherQueueController.has_value())
         {
-            return DesktopInteropNs::wus::DispatcherQueueController{nullptr};
+            return DesktopInteropNs::wus::DispatcherQueueController{ nullptr };
         }
 
         return *DesktopInteropInternal::gDispatcherQueueController;
     }
 
-    DesktopInteropInternal::gDispatcherQueueController =
-        CreateDispatcherQueueControllerForCurrentThread();
+    DesktopInteropInternal::gDispatcherQueueController = CreateDispatcherQueueControllerForCurrentThread();
     return *DesktopInteropInternal::gDispatcherQueueController;
 }
 
-bool DesktopInterop::CreateDesktopHostTestWindow(DesktopHostBackend backend,
-                                                 std::wstring* errorMessage)
+bool DesktopInterop::CreateDesktopHostTestWindow(DesktopHostBackend backend, std::wstring* errorMessage)
 {
-    auto hostWindow =
-        std::make_unique<DesktopInteropInternal::DesktopHostWindow>(backend);
+    auto hostWindow = std::make_unique<DesktopInteropInternal::DesktopHostWindow>(backend);
     if (!hostWindow->CreateWindowInstance(errorMessage))
     {
         return false;
     }
 
     HWND hostHandle = hostWindow->GetWindowHandle();
-    DesktopInteropInternal::gDesktopHostWindows.emplace(hostHandle,
-                                                        std::move(hostWindow));
-    DesktopInteropInternal::DesktopHostWindow* instance =
-        DesktopInteropInternal::gDesktopHostWindows[hostHandle].get();
+    DesktopInteropInternal::gDesktopHostWindows.emplace(hostHandle, std::move(hostWindow));
+    DesktopInteropInternal::DesktopHostWindow* instance = DesktopInteropInternal::gDesktopHostWindows[hostHandle].get();
 
     if (!instance->Initialize(errorMessage))
     {

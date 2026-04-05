@@ -75,9 +75,8 @@ namespace ConsoleDebugLifecycle
                     // References:
                     // https://learn.microsoft.com/windows/console/handlerroutine
                     // https://learn.microsoft.com/windows/console/setconsolectrlhandler
-                    DiagnosticConsole::WriteLine(
-                        L"[ConsoleDebug] Ctrl+C/Ctrl+Break is blocked in debug-console mode. "
-                        L"Use interactive window close instead.");
+                    DiagnosticConsole::WriteLine(L"[ConsoleDebug] Ctrl+C/Ctrl+Break is blocked in debug-console mode. "
+                                                 L"Use interactive window close instead.");
                     return TRUE;
 
                 case CTRL_CLOSE_EVENT:
@@ -99,7 +98,7 @@ namespace ConsoleDebugLifecycle
 
         DWORD WINAPI ConsoleCloseMonitorThreadProc(LPVOID)
         {
-            HANDLE waits[] = {gConsoleMonitorStopEvent, gConsoleCloseNotifyEvent, gConsoleCtrlFallbackEvent};
+            HANDLE waits[] = { gConsoleMonitorStopEvent, gConsoleCloseNotifyEvent, gConsoleCtrlFallbackEvent };
             for (;;)
             {
                 const DWORD waitResult = ::WaitForMultipleObjects(_countof(waits), waits, FALSE, INFINITE);
@@ -128,11 +127,13 @@ namespace ConsoleDebugLifecycle
                 return true;
             }
 
-            const std::wstring notifyEventName = ConsoleHookIpc::BuildConsoleCloseNotifyEventName(::GetCurrentProcessId());
+            const std::wstring notifyEventName =
+                ConsoleHookIpc::BuildConsoleCloseNotifyEventName(::GetCurrentProcessId());
             gConsoleCloseNotifyEvent = ::CreateEventW(nullptr, FALSE, FALSE, notifyEventName.c_str());
             gConsoleCtrlFallbackEvent = ::CreateEventW(nullptr, FALSE, FALSE, nullptr);
             gConsoleMonitorStopEvent = ::CreateEventW(nullptr, TRUE, FALSE, nullptr);
-            if (gConsoleCloseNotifyEvent == nullptr || gConsoleCtrlFallbackEvent == nullptr || gConsoleMonitorStopEvent == nullptr)
+            if (gConsoleCloseNotifyEvent == nullptr || gConsoleCtrlFallbackEvent == nullptr ||
+                gConsoleMonitorStopEvent == nullptr)
             {
                 StopConsoleCloseMonitor();
                 return false;

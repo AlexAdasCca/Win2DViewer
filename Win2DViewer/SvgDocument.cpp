@@ -8,14 +8,13 @@ namespace
     {
         LPWSTR buffer = nullptr;
         const DWORD flags = FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS;
-        const DWORD size = ::FormatMessageW(
-            flags,
-            nullptr,
-            errorCode,
-            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-            reinterpret_cast<LPWSTR>(&buffer),
-            0,
-            nullptr);
+        const DWORD size = ::FormatMessageW(flags,
+                                            nullptr,
+                                            errorCode,
+                                            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                                            reinterpret_cast<LPWSTR>(&buffer),
+                                            0,
+                                            nullptr);
 
         std::wstring message;
         if (size != 0 && buffer != nullptr)
@@ -41,15 +40,8 @@ bool CSvgDocument::LoadFromFile(std::wstring_view path, std::wstring* errorMessa
 {
     Clear();
 
-    wil::unique_hfile file{
-        ::CreateFileW(
-            path.data(),
-            GENERIC_READ,
-            FILE_SHARE_READ,
-            nullptr,
-            OPEN_EXISTING,
-            FILE_ATTRIBUTE_NORMAL,
-            nullptr)};
+    wil::unique_hfile file{ ::CreateFileW(
+        path.data(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr) };
 
     if (!file)
     {

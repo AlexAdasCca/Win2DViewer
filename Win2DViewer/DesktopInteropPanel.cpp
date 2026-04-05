@@ -6,7 +6,7 @@ namespace DesktopInteropInternal
 {
     class DesktopHostTestPanelWindow
     {
-      public:
+    public:
         bool Create(HWND ownerWindow)
         {
             WNDCLASSW windowClass{};
@@ -19,12 +19,19 @@ namespace DesktopInteropInternal
             ::RegisterClassW(&windowClass);
 
             const DWORD exStyle = WS_EX_APPWINDOW;
-            const DWORD style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU |
-                                WS_MINIMIZEBOX | WS_THICKFRAME;
-            windowHandle = ::CreateWindowExW(
-                exStyle, kDesktopHostPanelClassName, L"Desktop Host Test Panel", style,
-                CW_USEDEFAULT, CW_USEDEFAULT, 560, 230, ownerWindow, nullptr,
-                ::GetModuleHandleW(nullptr), this);
+            const DWORD style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_THICKFRAME;
+            windowHandle = ::CreateWindowExW(exStyle,
+                                             kDesktopHostPanelClassName,
+                                             L"Desktop Host Test Panel",
+                                             style,
+                                             CW_USEDEFAULT,
+                                             CW_USEDEFAULT,
+                                             560,
+                                             230,
+                                             ownerWindow,
+                                             nullptr,
+                                             ::GetModuleHandleW(nullptr),
+                                             this);
 
             if (windowHandle == nullptr)
             {
@@ -34,10 +41,7 @@ namespace DesktopInteropInternal
             return true;
         }
 
-        bool IsWindow() const noexcept
-        {
-            return windowHandle != nullptr && ::IsWindow(windowHandle);
-        }
+        bool IsWindow() const noexcept { return windowHandle != nullptr && ::IsWindow(windowHandle); }
 
         void ShowAndActivate() const
         {
@@ -69,23 +73,19 @@ namespace DesktopInteropInternal
             }
         }
 
-        static LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam,
-                                        LPARAM lParam)
+        static LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
         {
             DesktopHostTestPanelWindow* that = nullptr;
             if (message == WM_NCCREATE)
             {
                 auto* createStruct = reinterpret_cast<CREATESTRUCTW*>(lParam);
-                that = static_cast<DesktopHostTestPanelWindow*>(
-                    createStruct->lpCreateParams);
-                ::SetWindowLongPtrW(window, GWLP_USERDATA,
-                                    reinterpret_cast<LONG_PTR>(that));
+                that = static_cast<DesktopHostTestPanelWindow*>(createStruct->lpCreateParams);
+                ::SetWindowLongPtrW(window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(that));
                 that->windowHandle = window;
             }
             else
             {
-                that = reinterpret_cast<DesktopHostTestPanelWindow*>(
-                    ::GetWindowLongPtrW(window, GWLP_USERDATA));
+                that = reinterpret_cast<DesktopHostTestPanelWindow*>(::GetWindowLongPtrW(window, GWLP_USERDATA));
             }
 
             if (that == nullptr)
@@ -96,55 +96,84 @@ namespace DesktopInteropInternal
             return that->HandleMessage(message, wParam, lParam);
         }
 
-      private:
+    private:
         LRESULT OnCreate()
         {
-            instructionLabel = ::CreateWindowExW(
-                0, WC_STATICW,
-                L"Create isolated Win32 host windows for interop validation. Host "
-                L"windows use WS_EX_NOREDIRECTIONBITMAP.",
-                WS_CHILD | WS_VISIBLE, 12, 12, 520, 36, windowHandle, nullptr,
-                ::GetModuleHandleW(nullptr), nullptr);
+            instructionLabel = ::CreateWindowExW(0,
+                                                 WC_STATICW,
+                                                 L"Create isolated Win32 host windows for interop validation. Host "
+                                                 L"windows use WS_EX_NOREDIRECTIONBITMAP.",
+                                                 WS_CHILD | WS_VISIBLE,
+                                                 12,
+                                                 12,
+                                                 520,
+                                                 36,
+                                                 windowHandle,
+                                                 nullptr,
+                                                 ::GetModuleHandleW(nullptr),
+                                                 nullptr);
 
-            winRtButton = ::CreateWindowExW(
-                0, WC_BUTTONW, L"Create WinRT Physics Host",
-                WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 12, 60, 250, 32, windowHandle,
-                reinterpret_cast<HMENU>(static_cast<INT_PTR>(kPanelButtonWinRt)),
-                ::GetModuleHandleW(nullptr), nullptr);
+            winRtButton = ::CreateWindowExW(0,
+                                            WC_BUTTONW,
+                                            L"Create WinRT Physics Host",
+                                            WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                                            12,
+                                            60,
+                                            250,
+                                            32,
+                                            windowHandle,
+                                            reinterpret_cast<HMENU>(static_cast<INT_PTR>(kPanelButtonWinRt)),
+                                            ::GetModuleHandleW(nullptr),
+                                            nullptr);
 
-            winRtBackdropButton = ::CreateWindowExW(
-                0, WC_BUTTONW, L"Create WinRT Host Backdrop Host",
-                WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 272, 60, 250, 32, windowHandle,
-                reinterpret_cast<HMENU>(
-                    static_cast<INT_PTR>(kPanelButtonWinRtBackdrop)),
-                ::GetModuleHandleW(nullptr), nullptr);
+            winRtBackdropButton =
+                ::CreateWindowExW(0,
+                                  WC_BUTTONW,
+                                  L"Create WinRT Host Backdrop Host",
+                                  WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                                  272,
+                                  60,
+                                  250,
+                                  32,
+                                  windowHandle,
+                                  reinterpret_cast<HMENU>(static_cast<INT_PTR>(kPanelButtonWinRtBackdrop)),
+                                  ::GetModuleHandleW(nullptr),
+                                  nullptr);
 
-            dcompButton = ::CreateWindowExW(
-                0, WC_BUTTONW, L"Create DirectComposition Flow Host",
-                WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 12, 102, 250, 32, windowHandle,
-                reinterpret_cast<HMENU>(static_cast<INT_PTR>(kPanelButtonDComp)),
-                ::GetModuleHandleW(nullptr), nullptr);
+            dcompButton = ::CreateWindowExW(0,
+                                            WC_BUTTONW,
+                                            L"Create DirectComposition Flow Host",
+                                            WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                                            12,
+                                            102,
+                                            250,
+                                            32,
+                                            windowHandle,
+                                            reinterpret_cast<HMENU>(static_cast<INT_PTR>(kPanelButtonDComp)),
+                                            ::GetModuleHandleW(nullptr),
+                                            nullptr);
 
-            bothButton = ::CreateWindowExW(
-                0, WC_BUTTONW, L"Create All Hosts",
-                WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 272, 102, 250, 32, windowHandle,
-                reinterpret_cast<HMENU>(static_cast<INT_PTR>(kPanelButtonBoth)),
-                ::GetModuleHandleW(nullptr), nullptr);
+            bothButton = ::CreateWindowExW(0,
+                                           WC_BUTTONW,
+                                           L"Create All Hosts",
+                                           WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                                           272,
+                                           102,
+                                           250,
+                                           32,
+                                           windowHandle,
+                                           reinterpret_cast<HMENU>(static_cast<INT_PTR>(kPanelButtonBoth)),
+                                           ::GetModuleHandleW(nullptr),
+                                           nullptr);
 
-            HFONT messageFont =
-                reinterpret_cast<HFONT>(::GetStockObject(DEFAULT_GUI_FONT));
+            HFONT messageFont = reinterpret_cast<HFONT>(::GetStockObject(DEFAULT_GUI_FONT));
             if (messageFont != nullptr)
             {
-                ::SendMessageW(instructionLabel, WM_SETFONT,
-                               reinterpret_cast<WPARAM>(messageFont), TRUE);
-                ::SendMessageW(winRtButton, WM_SETFONT,
-                               reinterpret_cast<WPARAM>(messageFont), TRUE);
-                ::SendMessageW(winRtBackdropButton, WM_SETFONT,
-                               reinterpret_cast<WPARAM>(messageFont), TRUE);
-                ::SendMessageW(dcompButton, WM_SETFONT,
-                               reinterpret_cast<WPARAM>(messageFont), TRUE);
-                ::SendMessageW(bothButton, WM_SETFONT,
-                               reinterpret_cast<WPARAM>(messageFont), TRUE);
+                ::SendMessageW(instructionLabel, WM_SETFONT, reinterpret_cast<WPARAM>(messageFont), TRUE);
+                ::SendMessageW(winRtButton, WM_SETFONT, reinterpret_cast<WPARAM>(messageFont), TRUE);
+                ::SendMessageW(winRtBackdropButton, WM_SETFONT, reinterpret_cast<WPARAM>(messageFont), TRUE);
+                ::SendMessageW(dcompButton, WM_SETFONT, reinterpret_cast<WPARAM>(messageFont), TRUE);
+                ::SendMessageW(bothButton, WM_SETFONT, reinterpret_cast<WPARAM>(messageFont), TRUE);
             }
 
             return 0;
@@ -158,19 +187,15 @@ namespace DesktopInteropInternal
                     CreateHostFromPanel(DesktopInterop::DesktopHostBackend::WinRTComposition);
                     return 0;
                 case kPanelButtonWinRtBackdrop:
-                    CreateHostFromPanel(
-                        DesktopInterop::DesktopHostBackend::WinRTHostBackdrop);
+                    CreateHostFromPanel(DesktopInterop::DesktopHostBackend::WinRTHostBackdrop);
                     return 0;
                 case kPanelButtonDComp:
-                    CreateHostFromPanel(
-                        DesktopInterop::DesktopHostBackend::DirectComposition);
+                    CreateHostFromPanel(DesktopInterop::DesktopHostBackend::DirectComposition);
                     return 0;
                 case kPanelButtonBoth:
                     CreateHostFromPanel(DesktopInterop::DesktopHostBackend::WinRTComposition);
-                    CreateHostFromPanel(
-                        DesktopInterop::DesktopHostBackend::WinRTHostBackdrop);
-                    CreateHostFromPanel(
-                        DesktopInterop::DesktopHostBackend::DirectComposition);
+                    CreateHostFromPanel(DesktopInterop::DesktopHostBackend::WinRTHostBackdrop);
+                    CreateHostFromPanel(DesktopInterop::DesktopHostBackend::DirectComposition);
                     return 0;
                 default:
                     return 0;
@@ -197,8 +222,7 @@ namespace DesktopInteropInternal
             }
             if (winRtBackdropButton != nullptr)
             {
-                ::MoveWindow(winRtBackdropButton, rightButtonX, 60, rightButtonWidth, 32,
-                             TRUE);
+                ::MoveWindow(winRtBackdropButton, rightButtonX, 60, rightButtonWidth, 32, TRUE);
             }
             if (dcompButton != nullptr)
             {
@@ -215,14 +239,12 @@ namespace DesktopInteropInternal
             std::wstring errorMessage;
             if (!DesktopInterop::CreateDesktopHostTestWindow(backend, &errorMessage))
             {
-                const std::wstring message =
-                    L"Failed to create desktop host window.\n" + errorMessage;
-                ::MessageBoxW(windowHandle, message.c_str(), L"Desktop Host Test",
-                              MB_OK | MB_ICONERROR);
+                const std::wstring message = L"Failed to create desktop host window.\n" + errorMessage;
+                ::MessageBoxW(windowHandle, message.c_str(), L"Desktop Host Test", MB_OK | MB_ICONERROR);
             }
         }
 
-      private:
+    private:
         HWND windowHandle = nullptr;
         HWND instructionLabel = nullptr;
         HWND winRtButton = nullptr;
@@ -243,14 +265,11 @@ void DesktopInterop::ShowDesktopHostTestPanel(HWND ownerWindow)
         return;
     }
 
-    auto panel =
-        std::make_unique<DesktopInteropInternal::DesktopHostTestPanelWindow>();
+    auto panel = std::make_unique<DesktopInteropInternal::DesktopHostTestPanelWindow>();
     if (!panel->Create(ownerWindow))
     {
-        const std::wstring error = DesktopInteropInternal::FormatLastErrorMessage(
-            L"Create desktop host test panel");
-        ::MessageBoxW(ownerWindow, error.c_str(), L"Desktop Host Test",
-                      MB_OK | MB_ICONERROR);
+        const std::wstring error = DesktopInteropInternal::FormatLastErrorMessage(L"Create desktop host test panel");
+        ::MessageBoxW(ownerWindow, error.c_str(), L"Desktop Host Test", MB_OK | MB_ICONERROR);
         return;
     }
 

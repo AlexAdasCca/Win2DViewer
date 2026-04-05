@@ -72,8 +72,7 @@ namespace ConsoleMenuHook
         for (int attempt = 0; attempt < 400; ++attempt)
         {
             HWND windowHandle = runtimeState.ConsoleWindow.load();
-            if (windowHandle != nullptr && ::IsWindow(windowHandle) &&
-                runtimeState.ConsoleMenuInstalled.load() &&
+            if (windowHandle != nullptr && ::IsWindow(windowHandle) && runtimeState.ConsoleMenuInstalled.load() &&
                 runtimeState.ConsoleWindowSubclassed.load())
             {
                 result = 0;

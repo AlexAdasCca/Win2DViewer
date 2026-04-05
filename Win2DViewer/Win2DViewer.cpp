@@ -29,7 +29,7 @@ std::wstring LoadAppString(UINT stringId)
         return L"Win2DViewer";
     }
 
-    return std::wstring{value.GetString()};
+    return std::wstring{ value.GetString() };
 }
 
 namespace
@@ -74,11 +74,10 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, PWSTR, int nCmdShow)
             appModule.AddMessageLoop(&messageLoop);
 
             CMainFrame mainFrame;
-            HWND frameHwnd = mainFrame.CreateEx(
-                nullptr,
-                CWindow::rcDefault,
-                WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
-                WS_EX_APPWINDOW | WS_EX_NOREDIRECTIONBITMAP);
+            HWND frameHwnd = mainFrame.CreateEx(nullptr,
+                                                CWindow::rcDefault,
+                                                WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
+                                                WS_EX_APPWINDOW | WS_EX_NOREDIRECTIONBITMAP);
             if (frameHwnd == nullptr)
             {
                 appModule.RemoveMessageLoop();

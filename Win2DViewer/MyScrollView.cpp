@@ -7,13 +7,12 @@ namespace
     constexpr int kMinimumLineScroll = 16;
 }
 
-CMyScrollView::CMyScrollView()
-    : themeModule(::LoadLibraryW(L"uxtheme.dll"))
+CMyScrollView::CMyScrollView() : themeModule(::LoadLibraryW(L"uxtheme.dll"))
 {
     if (themeModule)
     {
-        updatePanningFeedback = reinterpret_cast<UpdatePanningFeedbackFn>(
-            ::GetProcAddress(themeModule.get(), "UpdatePanningFeedback"));
+        updatePanningFeedback =
+            reinterpret_cast<UpdatePanningFeedbackFn>(::GetProcAddress(themeModule.get(), "UpdatePanningFeedback"));
     }
 }
 
@@ -192,7 +191,7 @@ BOOL CMyScrollView::HandleScroll(UINT bar, UINT scrollCode, UINT scrollPos, BOOL
         }
     }
 
-    CSize delta{0, 0};
+    CSize delta{ 0, 0 };
     if (horizontal)
     {
         delta.cx = target - current;
@@ -212,9 +211,8 @@ BOOL CMyScrollView::OnScrollBy(CSize sizeScroll, BOOL bDoScroll)
         return FALSE;
     }
 
-    CPoint target = ClampScrollPosition(CPoint{
-        currentScrollPos.x + sizeScroll.cx,
-        currentScrollPos.y + sizeScroll.cy});
+    CPoint target =
+        ClampScrollPosition(CPoint{ currentScrollPos.x + sizeScroll.cx, currentScrollPos.y + sizeScroll.cy });
 
     if (target == currentScrollPos)
     {

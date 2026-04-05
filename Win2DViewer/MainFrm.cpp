@@ -57,7 +57,7 @@ namespace
             return std::nullopt;
         }
 
-        return std::wstring{filePath};
+        return std::wstring{ filePath };
     }
 
     UINT LayerModeToCommandId(CWin2DView::RenderLayerMode mode)
@@ -104,12 +104,11 @@ LRESULT CMainFrame::OnCreate(UINT, WPARAM, LPARAM, BOOL&)
     RECT rcClient{};
     GetClientRect(&rcClient);
 
-    m_hWndClient = view.Create(
-        m_hWnd,
-        rcClient,
-        nullptr,
-        WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_HSCROLL | WS_VSCROLL,
-        WS_EX_NOREDIRECTIONBITMAP);
+    m_hWndClient = view.Create(m_hWnd,
+                               rcClient,
+                               nullptr,
+                               WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | WS_HSCROLL | WS_VSCROLL,
+                               WS_EX_NOREDIRECTIONBITMAP);
 
     if (m_hWndClient == nullptr)
     {
@@ -275,7 +274,8 @@ LRESULT CMainFrame::OnViewConsoleDebug(WORD, WORD, HWND, BOOL&)
 LRESULT CMainFrame::OnTestCreateWinRtHost(WORD, WORD, HWND, BOOL&)
 {
     std::wstring errorMessage;
-    if (!DesktopInterop::CreateDesktopHostTestWindow(DesktopInterop::DesktopHostBackend::WinRTComposition, &errorMessage))
+    if (!DesktopInterop::CreateDesktopHostTestWindow(DesktopInterop::DesktopHostBackend::WinRTComposition,
+                                                     &errorMessage))
     {
         const std::wstring message = L"Failed to create WinRT composition host window.\n" + errorMessage;
         AtlMessageBox(m_hWnd, message.c_str(), IDS_APP_TITLE, MB_OK | MB_ICONERROR);
@@ -339,22 +339,18 @@ void CMainFrame::InitializeSystemMenu()
         topMostItem.shortcut->virtualKey = 'T';
         topMostItem.shortcut->ctrl = true;
         topMostItem.shortcut->alt = true;
-        topMostItem.onInvoke = [this](HWND windowHandle)
-        {
+        topMostItem.onInvoke = [this](HWND windowHandle) {
             isWindowTopMost = !isWindowTopMost;
-            ::SetWindowPos(
-                windowHandle,
-                isWindowTopMost ? HWND_TOPMOST : HWND_NOTOPMOST,
-                0,
-                0,
-                0,
-                0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            ::SetWindowPos(windowHandle,
+                           isWindowTopMost ? HWND_TOPMOST : HWND_NOTOPMOST,
+                           0,
+                           0,
+                           0,
+                           0,
+                           SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
         };
-        topMostItem.isChecked = [this]()
-        { return isWindowTopMost; };
-        topMostItem.isEnabled = []()
-        { return true; };
+        topMostItem.isChecked = [this]() { return isWindowTopMost; };
+        topMostItem.isEnabled = []() { return true; };
 
         SystemMenu::MenuItemSpec separator{};
         separator.separator = true;
@@ -365,10 +361,8 @@ void CMainFrame::InitializeSystemMenu()
         aboutItem.shortcut = SystemMenu::ShortcutBinding{};
         aboutItem.shortcut->virtualKey = VK_F1;
         aboutItem.shortcut->alt = true;
-        aboutItem.onInvoke = [](HWND windowHandle)
-        { ShowAboutDialog(windowHandle); };
-        aboutItem.isEnabled = []()
-        { return true; };
+        aboutItem.onInvoke = [](HWND windowHandle) { ShowAboutDialog(windowHandle); };
+        aboutItem.isEnabled = []() { return true; };
 
         (void)systemMenuHost.AddItem(separator, &errorMessage);
         (void)systemMenuHost.AddItem(std::move(topMostItem), &errorMessage);
@@ -409,7 +403,7 @@ void CMainFrame::UpdateWindowTitle()
     if (!document.GetPath().empty())
     {
         title += L" - ";
-        title += std::wstring{document.GetPath()};
+        title += std::wstring{ document.GetPath() };
     }
 
     SetWindowTextW(title.c_str());
@@ -425,17 +419,11 @@ void CMainFrame::UpdateLayerMenuState()
 
     const UINT selectedId = LayerModeToCommandId(view.GetRenderLayerMode());
     ::CheckMenuRadioItem(
-        menuHandle,
-        ID_VIEW_LAYER_EFFECT_OVER_SVG,
-        ID_VIEW_LAYER_EFFECT_ONLY,
-        selectedId,
-        MF_BYCOMMAND);
+        menuHandle, ID_VIEW_LAYER_EFFECT_OVER_SVG, ID_VIEW_LAYER_EFFECT_ONLY, selectedId, MF_BYCOMMAND);
 
     consoleDebugEnabled = view.IsConsoleDebugEnabled();
     ::CheckMenuItem(
-        menuHandle,
-        ID_VIEW_CONSOLE_DEBUG,
-        MF_BYCOMMAND | (consoleDebugEnabled ? MF_CHECKED : MF_UNCHECKED));
+        menuHandle, ID_VIEW_CONSOLE_DEBUG, MF_BYCOMMAND | (consoleDebugEnabled ? MF_CHECKED : MF_UNCHECKED));
 }
 
 void CMainFrame::UpdateSystemMenuState(HMENU menuHandle)

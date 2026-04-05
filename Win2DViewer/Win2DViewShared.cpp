@@ -32,7 +32,7 @@ namespace Win2DViewInternal
 
     Win2DViewNs::wfn::float3x2 IdentityTransform()
     {
-        return Win2DViewNs::wfn::float3x2{1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f};
+        return Win2DViewNs::wfn::float3x2{ 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f };
     }
 
     int RoundToInt(double value)
@@ -40,8 +40,7 @@ namespace Win2DViewInternal
         return static_cast<int>(value + ((value < 0.0) ? -0.5 : 0.5));
     }
 
-    std::wstring ReplaceString(std::wstring subject, std::wstring const& search,
-                               std::wstring const& replace)
+    std::wstring ReplaceString(std::wstring subject, std::wstring const& search, std::wstring const& replace)
     {
         size_t pos = 0;
         while ((pos = subject.find(search, pos)) != std::wstring::npos)
@@ -55,12 +54,9 @@ namespace Win2DViewInternal
 
     std::wstring Trim(std::wstring value)
     {
-        auto notSpace = [](wchar_t ch)
-        { return !iswspace(ch); };
-        value.erase(value.begin(),
-                    std::find_if(value.begin(), value.end(), notSpace));
-        value.erase(std::find_if(value.rbegin(), value.rend(), notSpace).base(),
-                    value.end());
+        auto notSpace = [](wchar_t ch) { return !iswspace(ch); };
+        value.erase(value.begin(), std::find_if(value.begin(), value.end(), notSpace));
+        value.erase(std::find_if(value.rbegin(), value.rend(), notSpace).base(), value.end());
         return value;
     }
 
@@ -85,9 +81,8 @@ namespace Win2DViewInternal
             fontFamily = Trim(std::move(fontFamily));
         }
 
-        if (fontFamily.size() >= 2 &&
-            ((fontFamily.front() == L'"' && fontFamily.back() == L'"') ||
-             (fontFamily.front() == L'\'' && fontFamily.back() == L'\'')))
+        if (fontFamily.size() >= 2 && ((fontFamily.front() == L'"' && fontFamily.back() == L'"') ||
+                                       (fontFamily.front() == L'\'' && fontFamily.back() == L'\'')))
         {
             fontFamily = fontFamily.substr(1, fontFamily.size() - 2);
         }
@@ -136,8 +131,7 @@ namespace Win2DViewInternal
         std::unordered_map<std::wstring, std::wstring> classStyles;
 
         const std::wregex classRule(LR"(.([A-Za-z0-9_-]+)\s*\{([^}]*)\})");
-        for (std::wsregex_iterator it(css.begin(), css.end(), classRule), end;
-             it != end; ++it)
+        for (std::wsregex_iterator it(css.begin(), css.end(), classRule), end; it != end; ++it)
         {
             const std::wstring className = (*it)[1].str();
             std::wstring declarations = Trim((*it)[2].str());
@@ -160,8 +154,7 @@ namespace Win2DViewInternal
 
         const std::wregex classAttr(L"class\\s*=\\s*\"([^\"]*)\"");
         const std::wregex styleAttr(L"style\\s*=\\s*\"([^\"]*)\"");
-        auto EscapeAttributeValue = [](std::wstring value)
-        {
+        auto EscapeAttributeValue = [](std::wstring value) {
             value = ReplaceString(std::move(value), L"&", L"&amp;");
             value = ReplaceString(std::move(value), L"\"", L"&quot;");
             value = ReplaceString(std::move(value), L"<", L"&lt;");
@@ -218,22 +211,18 @@ namespace Win2DViewInternal
                         {
                             currentStyle.push_back(L';');
                         }
-                        const std::wstring escapedStyle =
-                            EscapeAttributeValue(currentStyle + mergedStyle);
+                        const std::wstring escapedStyle = EscapeAttributeValue(currentStyle + mergedStyle);
                         const std::wstring newStyle = L"style=\"" + escapedStyle + L"\"";
-                        tag = std::regex_replace(tag, styleAttr, newStyle,
-                                                 std::regex_constants::format_first_only);
+                        tag = std::regex_replace(tag, styleAttr, newStyle, std::regex_constants::format_first_only);
                     }
                     else
                     {
                         size_t insertPos = tag.size() > 1 ? tag.size() - 1 : tag.size();
-                        if (tag.size() >= 2 && tag[tag.size() - 2] == L'/' &&
-                            tag[tag.size() - 1] == L'>')
+                        if (tag.size() >= 2 && tag[tag.size() - 2] == L'/' && tag[tag.size() - 1] == L'>')
                         {
                             insertPos = tag.size() - 2;
                         }
-                        tag.insert(insertPos,
-                                   L" style=\"" + EscapeAttributeValue(mergedStyle) + L"\"");
+                        tag.insert(insertPos, L" style=\"" + EscapeAttributeValue(mergedStyle) + L"\"");
                     }
                 }
             }
@@ -245,16 +234,15 @@ namespace Win2DViewInternal
         return rebuilt;
     }
 
-    std::unordered_map<std::wstring, std::wstring>
-    ParseCssDeclarations(std::wstring const& declarationBlock)
+    std::unordered_map<std::wstring, std::wstring> ParseCssDeclarations(std::wstring const& declarationBlock)
     {
         std::unordered_map<std::wstring, std::wstring> declarations;
         size_t pos = 0;
         while (pos < declarationBlock.size())
         {
             const size_t semi = declarationBlock.find(L';', pos);
-            std::wstring item = declarationBlock.substr(
-                pos, semi == std::wstring::npos ? std::wstring::npos : semi - pos);
+            std::wstring item =
+                declarationBlock.substr(pos, semi == std::wstring::npos ? std::wstring::npos : semi - pos);
             item = Trim(std::move(item));
             if (!item.empty())
             {
@@ -279,26 +267,17 @@ namespace Win2DViewInternal
         return declarations;
     }
 
-    std::unordered_map<std::wstring, std::wstring>
-    ParseXmlAttributes(std::wstring const& attrText)
+    std::unordered_map<std::wstring, std::wstring> ParseXmlAttributes(std::wstring const& attrText)
     {
         std::unordered_map<std::wstring, std::wstring> attrs;
-        const std::wregex attrPatternDouble(
-            LR"attr(([A-Za-z_:][A-Za-z0-9_.:-]*)\s*=\s*"([^"]*)")attr");
-        for (std::wsregex_iterator
-                 it(attrText.begin(), attrText.end(), attrPatternDouble),
-             end;
-             it != end; ++it)
+        const std::wregex attrPatternDouble(LR"attr(([A-Za-z_:][A-Za-z0-9_.:-]*)\s*=\s*"([^"]*)")attr");
+        for (std::wsregex_iterator it(attrText.begin(), attrText.end(), attrPatternDouble), end; it != end; ++it)
         {
             attrs[(*it)[1].str()] = (*it)[2].str();
         }
 
-        const std::wregex attrPatternSingle(
-            LR"attr(([A-Za-z_:][A-Za-z0-9_.:-]*)\s*=\s*'([^']*)')attr");
-        for (std::wsregex_iterator
-                 it(attrText.begin(), attrText.end(), attrPatternSingle),
-             end;
-             it != end; ++it)
+        const std::wregex attrPatternSingle(LR"attr(([A-Za-z_:][A-Za-z0-9_.:-]*)\s*=\s*'([^']*)')attr");
+        for (std::wsregex_iterator it(attrText.begin(), attrText.end(), attrPatternSingle), end; it != end; ++it)
         {
             attrs[(*it)[1].str()] = (*it)[2].str();
         }
@@ -315,8 +294,7 @@ namespace Win2DViewInternal
         return text;
     }
 
-    Win2DViewNs::wui::Color ParseSvgColor(std::wstring const& value,
-                                          Win2DViewNs::wui::Color fallback)
+    Win2DViewNs::wui::Color ParseSvgColor(std::wstring const& value, Win2DViewNs::wui::Color fallback)
     {
         std::wstring color = Trim(value);
         if (color.empty())
@@ -327,8 +305,7 @@ namespace Win2DViewInternal
         {
             if (color.size() == 4)
             {
-                auto hex = [](wchar_t c) -> uint8_t
-                {
+                auto hex = [](wchar_t c) -> uint8_t {
                     if (c >= L'0' && c <= L'9')
                         return static_cast<uint8_t>(c - L'0');
                     if (c >= L'a' && c <= L'f')
@@ -337,44 +314,39 @@ namespace Win2DViewInternal
                         return static_cast<uint8_t>(10 + c - L'A');
                     return 0;
                 };
-                return Win2DViewNs::wui::Color{255,
-                                               static_cast<uint8_t>(hex(color[1]) * 17),
-                                               static_cast<uint8_t>(hex(color[2]) * 17),
-                                               static_cast<uint8_t>(hex(color[3]) * 17)};
+                return Win2DViewNs::wui::Color{ 255,
+                                                static_cast<uint8_t>(hex(color[1]) * 17),
+                                                static_cast<uint8_t>(hex(color[2]) * 17),
+                                                static_cast<uint8_t>(hex(color[3]) * 17) };
             }
             if (color.size() == 7)
             {
-                const auto toByte = [&](size_t i) -> uint8_t
-                {
-                    return static_cast<uint8_t>(
-                        std::wcstol(color.substr(i, 2).c_str(), nullptr, 16));
+                const auto toByte = [&](size_t i) -> uint8_t {
+                    return static_cast<uint8_t>(std::wcstol(color.substr(i, 2).c_str(), nullptr, 16));
                 };
-                return Win2DViewNs::wui::Color{255, toByte(1), toByte(3), toByte(5)};
+                return Win2DViewNs::wui::Color{ 255, toByte(1), toByte(3), toByte(5) };
             }
         }
 
         if (color == L"black")
         {
-            return Win2DViewNs::wui::Color{255, 0, 0, 0};
+            return Win2DViewNs::wui::Color{ 255, 0, 0, 0 };
         }
         if (color == L"white")
         {
-            return Win2DViewNs::wui::Color{255, 255, 255, 255};
+            return Win2DViewNs::wui::Color{ 255, 255, 255, 255 };
         }
         return fallback;
     }
 
-    void ApplyFontShorthand(std::wstring const& fontValue, float& fontSize,
-                            bool& bold, std::wstring& fontFamily)
+    void ApplyFontShorthand(std::wstring const& fontValue, float& fontSize, bool& bold, std::wstring& fontFamily)
     {
         const std::wregex sizePattern(LR"(([0-9]+(?:.[0-9]+)?)px)");
         std::wsmatch sizeMatch;
         if (std::regex_search(fontValue, sizeMatch, sizePattern))
         {
-            fontSize =
-                static_cast<float>(std::wcstod(sizeMatch[1].str().c_str(), nullptr));
-            size_t familyPos =
-                static_cast<size_t>(sizeMatch.position() + sizeMatch.length());
+            fontSize = static_cast<float>(std::wcstod(sizeMatch[1].str().c_str(), nullptr));
+            size_t familyPos = static_cast<size_t>(sizeMatch.position() + sizeMatch.length());
             if (familyPos < fontValue.size())
             {
                 std::wstring family = Trim(fontValue.substr(familyPos));
@@ -392,44 +364,37 @@ namespace Win2DViewInternal
         }
     }
 
-    std::vector<CWin2DView::SvgTextOverlayItem>
-    ParseSvgTextOverlays(std::wstring const& svgText)
+    std::vector<CWin2DView::SvgTextOverlayItem> ParseSvgTextOverlays(std::wstring const& svgText)
     {
         std::vector<CWin2DView::SvgTextOverlayItem> overlays;
 
-        std::unordered_map<std::wstring,
-                           std::unordered_map<std::wstring, std::wstring>>
-            classDeclarations;
+        std::unordered_map<std::wstring, std::unordered_map<std::wstring, std::wstring>> classDeclarations;
         const std::wregex styleBlock(LR"(<style[^>]*>([\s\S]*?)</style>)");
         std::wsmatch styleMatch;
         if (std::regex_search(svgText, styleMatch, styleBlock))
         {
             const std::wstring css = styleMatch[1].str();
             const std::wregex classRule(LR"(.([A-Za-z0-9_-]+)\s*\{([^}]*)\})");
-            for (std::wsregex_iterator it(css.begin(), css.end(), classRule), end;
-                 it != end; ++it)
+            for (std::wsregex_iterator it(css.begin(), css.end(), classRule), end; it != end; ++it)
             {
                 classDeclarations[(*it)[1].str()] = ParseCssDeclarations((*it)[2].str());
             }
         }
 
-        const std::wregex textElement(
-            LR"(<\s*text\b([^>]*)>([\w\W]*?)<\s*/\s*text\s*>)",
-            std::regex_constants::icase);
-        for (std::wsregex_iterator it(svgText.begin(), svgText.end(), textElement),
-             end;
-             it != end; ++it)
+        // Use (.|\\n|\\r) instead of [\\w\\W] for MSVC std::wregex stability with
+        // Unicode punctuation in mixed CJK text content.
+        const std::wregex textElement(LR"(<\s*text\b([^>]*)>((.|\n|\r)*?)<\s*/\s*text\s*>)",
+                                      std::regex_constants::icase);
+        for (std::wsregex_iterator it(svgText.begin(), svgText.end(), textElement), end; it != end; ++it)
         {
             CWin2DView::SvgTextOverlayItem item;
 
             const std::wstring attrText = (*it)[1].str();
             std::wstring content = (*it)[2].str();
-            content = std::regex_replace(
-                content,
-                std::wregex(LR"(<\s*/\s*tspan\s*>)", std::regex_constants::icase), L"");
-            content = std::regex_replace(
-                content,
-                std::wregex(LR"(<\s*tspan\b[^>]*>)", std::regex_constants::icase), L"");
+            content =
+                std::regex_replace(content, std::wregex(LR"(<\s*/\s*tspan\s*>)", std::regex_constants::icase), L"");
+            content =
+                std::regex_replace(content, std::wregex(LR"(<\s*tspan\b[^>]*>)", std::regex_constants::icase), L"");
             content = std::regex_replace(content, std::wregex(LR"(<[^>]+>)"), L"");
             item.text = Trim(DecodeXmlEntities(content));
             if (item.text.empty())
@@ -446,8 +411,7 @@ namespace Win2DViewInternal
                 std::wstring className;
                 while (classStream >> className)
                 {
-                    if (auto declIt = classDeclarations.find(className);
-                        declIt != classDeclarations.end())
+                    if (auto declIt = classDeclarations.find(className); declIt != classDeclarations.end())
                     {
                         mergedStyle.insert(declIt->second.begin(), declIt->second.end());
                     }
@@ -480,21 +444,18 @@ namespace Win2DViewInternal
 
             if (auto fsIt = attrs.find(L"font-size"); fsIt != attrs.end())
             {
-                item.fontSize =
-                    static_cast<float>(std::wcstod(fsIt->second.c_str(), nullptr));
+                item.fontSize = static_cast<float>(std::wcstod(fsIt->second.c_str(), nullptr));
             }
             if (auto fsIt = mergedStyle.find(L"font-size"); fsIt != mergedStyle.end())
             {
-                item.fontSize =
-                    static_cast<float>(std::wcstod(fsIt->second.c_str(), nullptr));
+                item.fontSize = static_cast<float>(std::wcstod(fsIt->second.c_str(), nullptr));
             }
 
             if (auto ffIt = attrs.find(L"font-family"); ffIt != attrs.end())
             {
                 item.fontFamily = ffIt->second;
             }
-            if (auto ffIt = mergedStyle.find(L"font-family");
-                ffIt != mergedStyle.end())
+            if (auto ffIt = mergedStyle.find(L"font-family"); ffIt != mergedStyle.end())
             {
                 item.fontFamily = ffIt->second;
             }
@@ -503,43 +464,36 @@ namespace Win2DViewInternal
             {
                 item.bold = (fwIt->second == L"bold" || fwIt->second == L"700");
             }
-            if (auto fwIt = mergedStyle.find(L"font-weight");
-                fwIt != mergedStyle.end())
+            if (auto fwIt = mergedStyle.find(L"font-weight"); fwIt != mergedStyle.end())
             {
                 item.bold = (fwIt->second == L"bold" || fwIt->second == L"700");
             }
 
             if (auto fontIt = mergedStyle.find(L"font"); fontIt != mergedStyle.end())
             {
-                ApplyFontShorthand(fontIt->second, item.fontSize, item.bold,
-                                   item.fontFamily);
+                ApplyFontShorthand(fontIt->second, item.fontSize, item.bold, item.fontFamily);
             }
 
             if (auto taIt = attrs.find(L"text-anchor"); taIt != attrs.end())
             {
                 if (taIt->second == L"middle")
                 {
-                    item.textAlignment =
-                        Win2DViewNs::mgct::CanvasHorizontalAlignment::Center;
+                    item.textAlignment = Win2DViewNs::mgct::CanvasHorizontalAlignment::Center;
                 }
                 else if (taIt->second == L"end")
                 {
-                    item.textAlignment =
-                        Win2DViewNs::mgct::CanvasHorizontalAlignment::Right;
+                    item.textAlignment = Win2DViewNs::mgct::CanvasHorizontalAlignment::Right;
                 }
             }
-            if (auto taIt = mergedStyle.find(L"text-anchor");
-                taIt != mergedStyle.end())
+            if (auto taIt = mergedStyle.find(L"text-anchor"); taIt != mergedStyle.end())
             {
                 if (taIt->second == L"middle")
                 {
-                    item.textAlignment =
-                        Win2DViewNs::mgct::CanvasHorizontalAlignment::Center;
+                    item.textAlignment = Win2DViewNs::mgct::CanvasHorizontalAlignment::Center;
                 }
                 else if (taIt->second == L"end")
                 {
-                    item.textAlignment =
-                        Win2DViewNs::mgct::CanvasHorizontalAlignment::Right;
+                    item.textAlignment = Win2DViewNs::mgct::CanvasHorizontalAlignment::Right;
                 }
             }
 
@@ -576,18 +530,14 @@ namespace Win2DViewInternal
         return std::min(width / kScaleFactor, kMaxFontSize);
     }
 
-    Win2DViewNs::wr::com_ptr<::IDXGIDevice>
-    GetDXGIDevice(Win2DViewNs::mgc::CanvasDevice& device)
+    Win2DViewNs::wr::com_ptr<::IDXGIDevice> GetDXGIDevice(Win2DViewNs::mgc::CanvasDevice& device)
     {
-        Win2DViewNs::wr::com_ptr<
-            ABI::Microsoft::Graphics::Canvas::ICanvasResourceWrapperNative>
-            nativeDeviceWrapper = device.as<
-                ABI::Microsoft::Graphics::Canvas::ICanvasResourceWrapperNative>();
+        Win2DViewNs::wr::com_ptr<ABI::Microsoft::Graphics::Canvas::ICanvasResourceWrapperNative> nativeDeviceWrapper =
+            device.as<ABI::Microsoft::Graphics::Canvas::ICanvasResourceWrapperNative>();
 
-        Win2DViewNs::wr::com_ptr<ID2D1Device2> d2dDevice{nullptr};
+        Win2DViewNs::wr::com_ptr<ID2D1Device2> d2dDevice{ nullptr };
         Win2DViewNs::wr::check_hresult(nativeDeviceWrapper->GetNativeResource(
-            nullptr, 0.0f, Win2DViewNs::wr::guid_of<ID2D1Device2>(),
-            d2dDevice.put_void()));
+            nullptr, 0.0f, Win2DViewNs::wr::guid_of<ID2D1Device2>(), d2dDevice.put_void()));
 
         IDXGIDevice* dxgiDeviceRaw = nullptr;
         Win2DViewNs::wr::check_hresult(d2dDevice->GetDxgiDevice(&dxgiDeviceRaw));

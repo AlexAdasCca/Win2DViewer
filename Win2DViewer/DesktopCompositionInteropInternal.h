@@ -36,10 +36,8 @@ namespace DesktopInteropNs
 
 namespace DesktopInteropInternal
 {
-    inline constexpr wchar_t kDesktopHostWindowClassName[] =
-        L"Win2DViewer.DesktopHostWindow";
-    inline constexpr wchar_t kDesktopHostPanelClassName[] =
-        L"Win2DViewer.DesktopHostPanel";
+    inline constexpr wchar_t kDesktopHostWindowClassName[] = L"Win2DViewer.DesktopHostWindow";
+    inline constexpr wchar_t kDesktopHostPanelClassName[] = L"Win2DViewer.DesktopHostPanel";
     inline constexpr UINT_PTR kRenderTimerId = 1;
 
     inline constexpr int kPanelButtonWinRt = 2001;
@@ -50,16 +48,13 @@ namespace DesktopInteropInternal
 #ifndef DWMWA_USE_HOSTBACKDROPBRUSH
     inline constexpr DWORD kDwmAttrUseHostBackdropBrush = 17;
 #else
-    inline constexpr DWORD kDwmAttrUseHostBackdropBrush =
-        static_cast<DWORD>(DWMWA_USE_HOSTBACKDROPBRUSH);
+    inline constexpr DWORD kDwmAttrUseHostBackdropBrush = static_cast<DWORD>(DWMWA_USE_HOSTBACKDROPBRUSH);
 #endif
 
     class DesktopHostWindow;
 
-    extern std::optional<DesktopInteropNs::wus::DispatcherQueueController>
-        gDispatcherQueueController;
-    extern std::unordered_map<HWND, std::unique_ptr<DesktopHostWindow>>
-        gDesktopHostWindows;
+    extern std::optional<DesktopInteropNs::wus::DispatcherQueueController> gDispatcherQueueController;
+    extern std::unordered_map<HWND, std::unique_ptr<DesktopHostWindow>> gDesktopHostWindows;
 
     std::wstring FormatLastErrorMessage(std::wstring_view context);
     void SetErrorMessage(std::wstring* errorMessage, std::wstring message);
@@ -70,7 +65,7 @@ namespace DesktopInteropInternal
 
     class DesktopHostWindow
     {
-      public:
+    public:
         explicit DesktopHostWindow(DesktopInterop::DesktopHostBackend backend);
 
         bool CreateWindowInstance(std::wstring* errorMessage);
@@ -78,10 +73,9 @@ namespace DesktopInteropInternal
         HWND GetWindowHandle() const noexcept;
         LRESULT HandleMessage(UINT message, WPARAM wParam, LPARAM lParam);
 
-        static LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam,
-                                        LPARAM lParam);
+        static LRESULT CALLBACK WndProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam);
 
-      private:
+    private:
         void InitializeWinRTComposition();
         void EnableHostBackdropForWindow() const;
         void ResizeWinRTSurface();
@@ -90,7 +84,8 @@ namespace DesktopInteropInternal
         void ClampWinRTBallPosition();
 
         void InitializeDirectComposition();
-        void CreateDCompCompositionSwapChain(DXGI_ALPHA_MODE alphaMode, UINT width,
+        void CreateDCompCompositionSwapChain(DXGI_ALPHA_MODE alphaMode,
+                                             UINT width,
                                              UINT height,
                                              IDXGISwapChain1** swapChain);
         void CreateD3D11Device();
@@ -113,7 +108,7 @@ namespace DesktopInteropInternal
         void HandleResize();
         void RenderFrame();
 
-      private:
+    private:
         struct DCompFlowConstants
         {
             float time = 0.0f;
@@ -134,8 +129,7 @@ namespace DesktopInteropInternal
             float params[4]{};
         };
 
-        DesktopInterop::DesktopHostBackend backend =
-            DesktopInterop::DesktopHostBackend::WinRTComposition;
+        DesktopInterop::DesktopHostBackend backend = DesktopInterop::DesktopHostBackend::WinRTComposition;
         HWND windowHandle = nullptr;
         bool rendererInitialized = false;
         float animationPhase = 0.0f;
@@ -145,20 +139,19 @@ namespace DesktopInteropInternal
         int surfacePixelHeight = 0;
         bool physicsInitialized = false;
         float ballRadius = 34.0f;
-        DesktopInteropNs::wfn::float2 ballPosition{180.0f, 180.0f};
-        DesktopInteropNs::wfn::float2 ballVelocity{300.0f, 220.0f};
+        DesktopInteropNs::wfn::float2 ballPosition{ 180.0f, 180.0f };
+        DesktopInteropNs::wfn::float2 ballVelocity{ 300.0f, 220.0f };
 
-        DesktopInteropNs::wuc::Compositor compositor{nullptr};
-        DesktopInteropNs::wud::DesktopWindowTarget compositionTarget{nullptr};
-        DesktopInteropNs::wuc::ContainerVisual rootVisual{nullptr};
-        DesktopInteropNs::wuc::SpriteVisual hostBackdropVisual{nullptr};
-        DesktopInteropNs::wuc::SpriteVisual hostTintVisual{nullptr};
-        DesktopInteropNs::wuc::SpriteVisual surfaceVisual{nullptr};
-        DesktopInteropNs::wuc::CompositionSurfaceBrush surfaceBrush{nullptr};
-        DesktopInteropNs::mgc::CanvasDevice canvasDevice{nullptr};
-        DesktopInteropNs::wuc::CompositionGraphicsDevice compositionGraphicsDevice{
-            nullptr};
-        DesktopInteropNs::wuc::CompositionDrawingSurface drawingSurface{nullptr};
+        DesktopInteropNs::wuc::Compositor compositor{ nullptr };
+        DesktopInteropNs::wud::DesktopWindowTarget compositionTarget{ nullptr };
+        DesktopInteropNs::wuc::ContainerVisual rootVisual{ nullptr };
+        DesktopInteropNs::wuc::SpriteVisual hostBackdropVisual{ nullptr };
+        DesktopInteropNs::wuc::SpriteVisual hostTintVisual{ nullptr };
+        DesktopInteropNs::wuc::SpriteVisual surfaceVisual{ nullptr };
+        DesktopInteropNs::wuc::CompositionSurfaceBrush surfaceBrush{ nullptr };
+        DesktopInteropNs::mgc::CanvasDevice canvasDevice{ nullptr };
+        DesktopInteropNs::wuc::CompositionGraphicsDevice compositionGraphicsDevice{ nullptr };
+        DesktopInteropNs::wuc::CompositionDrawingSurface drawingSurface{ nullptr };
 
         DesktopInteropNs::wr::com_ptr<ID3D11Device> d3dDevice;
         DesktopInteropNs::wr::com_ptr<ID3D11DeviceContext> d3dContext;
@@ -170,8 +163,7 @@ namespace DesktopInteropInternal
         DesktopInteropNs::wr::com_ptr<IDXGISwapChain1> dcompSwapChain;
         DesktopInteropNs::wr::com_ptr<IDXGISwapChain1> dcompOverlaySwapChain;
         DesktopInteropNs::wr::com_ptr<ID3D11RenderTargetView> dcompRenderTargetView;
-        DesktopInteropNs::wr::com_ptr<ID3D11RenderTargetView>
-            dcompOverlayRenderTargetView;
+        DesktopInteropNs::wr::com_ptr<ID3D11RenderTargetView> dcompOverlayRenderTargetView;
         DesktopInteropNs::wr::com_ptr<ID3D11VertexShader> dcompVertexShader;
         DesktopInteropNs::wr::com_ptr<ID3D11PixelShader> dcompPixelShader;
         DesktopInteropNs::wr::com_ptr<ID3D11PixelShader> dcompOverlayPixelShader;
