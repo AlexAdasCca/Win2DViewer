@@ -14,21 +14,16 @@ namespace ConsoleMenuHook
         void StopWindowDiscoveryThreadIfRunning()
         {
             auto& runtimeState = GetRuntimeState();
-            if (runtimeState.DiscoveryStopEvent != nullptr)
+            if (runtimeState.DiscoveryStopEvent)
             {
-                (void)::SetEvent(runtimeState.DiscoveryStopEvent);
+                (void)::SetEvent(runtimeState.DiscoveryStopEvent.get());
             }
-            if (runtimeState.DiscoveryThread != nullptr)
+            if (runtimeState.DiscoveryThread)
             {
-                (void)::WaitForSingleObject(runtimeState.DiscoveryThread, 2000);
-                ::CloseHandle(runtimeState.DiscoveryThread);
-                runtimeState.DiscoveryThread = nullptr;
+                (void)::WaitForSingleObject(runtimeState.DiscoveryThread.get(), 2000);
+                runtimeState.DiscoveryThread.reset();
             }
-            if (runtimeState.DiscoveryStopEvent != nullptr)
-            {
-                ::CloseHandle(runtimeState.DiscoveryStopEvent);
-                runtimeState.DiscoveryStopEvent = nullptr;
-            }
+            runtimeState.DiscoveryStopEvent.reset();
         }
     } // namespace
 
@@ -59,10 +54,11 @@ namespace ConsoleMenuHook
 #endif
 
 #if WIN2DVIEWER_CONSOLEMENU_ENABLE_WINDOW_ENUM_FALLBACK
-        runtimeState.DiscoveryStopEvent = ::CreateEventW(nullptr, TRUE, FALSE, nullptr);
-        if (runtimeState.DiscoveryStopEvent != nullptr)
+        runtimeState.DiscoveryStopEvent.reset(::CreateEventW(nullptr, TRUE, FALSE, nullptr));
+        if (runtimeState.DiscoveryStopEvent)
         {
-            runtimeState.DiscoveryThread = ::CreateThread(nullptr, 0, &WindowDiscoveryThreadProc, nullptr, 0, nullptr);
+            runtimeState.DiscoveryThread.reset(
+                ::CreateThread(nullptr, 0, &WindowDiscoveryThreadProc, nullptr, 0, nullptr));
         }
 #else
         LogLine(L"[ConsoleMenuHook] Window-enumeration fallback path disabled by macro.");
@@ -113,10 +109,6 @@ namespace ConsoleMenuHook
         StopWindowDiscoveryThreadIfRunning();
 #endif
 
-        if (runtimeState.InitThread != nullptr)
-        {
-            ::CloseHandle(runtimeState.InitThread);
-            runtimeState.InitThread = nullptr;
-        }
+        runtimeState.InitThread.reset();
     }
 } // namespace ConsoleMenuHook

@@ -390,8 +390,8 @@ namespace ConsoleMenuHook
             {
                 return 0;
             }
-            if (runtimeState.DiscoveryStopEvent != nullptr &&
-                ::WaitForSingleObject(runtimeState.DiscoveryStopEvent, 0) == WAIT_OBJECT_0)
+            if (runtimeState.DiscoveryStopEvent &&
+                ::WaitForSingleObject(runtimeState.DiscoveryStopEvent.get(), 0) == WAIT_OBJECT_0)
             {
                 return 0;
             }
@@ -402,9 +402,9 @@ namespace ConsoleMenuHook
                 while (!runtimeState.ConsoleWindowSubclassed.load() && runtimeState.ConsoleIntegrateInProgress.load() &&
                        waitedMs < kIntegrateWaitBudgetMs)
                 {
-                    if (runtimeState.DiscoveryStopEvent != nullptr)
+                    if (runtimeState.DiscoveryStopEvent)
                     {
-                        if (::WaitForSingleObject(runtimeState.DiscoveryStopEvent, kIntegrateWaitSliceMs) ==
+                        if (::WaitForSingleObject(runtimeState.DiscoveryStopEvent.get(), kIntegrateWaitSliceMs) ==
                             WAIT_OBJECT_0)
                         {
                             return 0;
@@ -448,8 +448,8 @@ namespace ConsoleMenuHook
                 }
             }
 
-            const DWORD waitResult = runtimeState.DiscoveryStopEvent != nullptr ?
-                                         ::WaitForSingleObject(runtimeState.DiscoveryStopEvent, 20) :
+            const DWORD waitResult = runtimeState.DiscoveryStopEvent ?
+                                         ::WaitForSingleObject(runtimeState.DiscoveryStopEvent.get(), 20) :
                                          WAIT_TIMEOUT;
             if (waitResult == WAIT_OBJECT_0)
             {

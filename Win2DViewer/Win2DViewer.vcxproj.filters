@@ -39,6 +39,9 @@
     <ClInclude Include="CallBackTimer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="WaitableRenderTimer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="DeviceLostHelper.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -55,6 +58,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ConsoleTextWriter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="FileDialogService.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="SystemMenuExtensions.h">
@@ -116,6 +122,9 @@
     <ClCompile Include="ConsoleDebugLifecycle.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="FileDialogService.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="DesktopInteropDComp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -138,6 +147,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Win2DViewSvgText.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="WaitableRenderTimer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

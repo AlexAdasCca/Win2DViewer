@@ -88,8 +88,10 @@ namespace
 
     DWORD gInjectedConsoleHostProcessId = 0;
     bool gDiagnosticsEnabled = false;
-    HANDLE gInjectionThread = nullptr;
+    wil::unique_handle gInjectionThread;
+    wil::unique_handle gInjectionStopEvent;
     std::atomic_bool gInjectionInProgress = false;
+    constexpr DWORD kInjectionShutdownWaitMs = 5000;
 
     void LogLine(std::wstring const& line)
     {
@@ -100,6 +102,11 @@ namespace
         }
 
         DiagnosticConsole::WriteLine(line);
+    }
+
+    bool IsInjectionStopRequested() noexcept
+    {
+        return gInjectionStopEvent && ::WaitForSingleObject(gInjectionStopEvent.get(), 0) == WAIT_OBJECT_0;
     }
 
     std::wstring FormatNtStatus(NTSTATUS status)
@@ -369,18 +376,17 @@ namespace
             return nullptr;
         }
 
-        HANDLE verifyHandle = ::OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, hostPid);
-        if (verifyHandle == nullptr)
+        wil::unique_handle verifyHandle(::OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, hostPid));
+        if (!verifyHandle)
         {
             return nullptr;
         }
 
         ProcessBasicInformationData info{};
-        const bool hasBasicInfo = TryQueryBasicProcessInfo(verifyHandle, ntQueryInformationProcess, info);
+        const bool hasBasicInfo = TryQueryBasicProcessInfo(verifyHandle.get(), ntQueryInformationProcess, info);
         const bool isChildProcess =
             hasBasicInfo && static_cast<DWORD>(info.InheritedFromUniqueProcessId) == ::GetCurrentProcessId();
-        const bool isConhostImage = IsConhostImagePath(verifyHandle);
-        ::CloseHandle(verifyHandle);
+        const bool isConhostImage = IsConhostImagePath(verifyHandle.get());
 
         if (!isChildProcess || !isConhostImage)
         {
@@ -388,8 +394,8 @@ namespace
             return nullptr;
         }
 
-        HANDLE injectHandle = ::OpenProcess(kInjectionAccess, FALSE, hostPid);
-        if (injectHandle == nullptr)
+        wil::unique_handle injectHandle(::OpenProcess(kInjectionAccess, FALSE, hostPid));
+        if (!injectHandle)
         {
             std::wstringstream ss;
             ss << L"[ConsoleMenuInjection] OpenProcess(injection) failed for hostPid=" << hostPid << L" gle="
@@ -398,7 +404,7 @@ namespace
             return nullptr;
         }
 
-        return injectHandle;
+        return injectHandle.release();
     }
 
     HANDLE FindCurrentConsoleHostProcess()
@@ -431,9 +437,15 @@ namespace
         LogLine(L"[ConsoleMenuInjection] ProcessConsoleHostProcess fast path is temporarily disabled by macro.");
 #endif
 
-        HANDLE currentHandle = nullptr;
+        wil::unique_handle currentHandle;
         while (true)
         {
+            if (IsInjectionStopRequested())
+            {
+                LogLine(L"[ConsoleMenuInjection] Enumeration canceled by shutdown request.");
+                break;
+            }
+
             HANDLE nextHandle = nullptr;
             // NtGetNextProcess parameters:
             // - ProcessHandle: iterator cursor (NULL for first item)
@@ -442,38 +454,28 @@ namespace
             // - Flags: PREVIOUS_PROCESS for reverse traversal
             // - NewProcessHandle: receives next cursor
             const NTSTATUS nextStatus = ntGetNextProcess(
-                currentHandle, kEnumerationAccess, 0, kProcessGetNextFlagsPreviousProcess, &nextHandle);
+                currentHandle.get(), kEnumerationAccess, 0, kProcessGetNextFlagsPreviousProcess, &nextHandle);
 
-            if (currentHandle != nullptr)
-            {
-                ::CloseHandle(currentHandle);
-                currentHandle = nullptr;
-            }
+            currentHandle.reset();
 
             if (!NT_SUCCESS(nextStatus))
             {
                 break;
             }
 
-            currentHandle = nextHandle;
-            if (IsCurrentConsoleHostProcess(currentHandle, ntQueryInformationProcess))
+            currentHandle.reset(nextHandle);
+            if (IsCurrentConsoleHostProcess(currentHandle.get(), ntQueryInformationProcess))
             {
-                const DWORD matchedPid = ::GetProcessId(currentHandle);
-                HANDLE injectHandle = ::OpenProcess(kInjectionAccess, FALSE, matchedPid);
-                if (injectHandle != nullptr)
+                const DWORD matchedPid = ::GetProcessId(currentHandle.get());
+                wil::unique_handle injectHandle(::OpenProcess(kInjectionAccess, FALSE, matchedPid));
+                if (injectHandle)
                 {
                     std::wstringstream ss;
                     ss << L"[ConsoleMenuInjection] Matched conhost via fallback enumeration pid=" << matchedPid;
                     LogLine(ss.str());
-                    ::CloseHandle(currentHandle);
-                    return injectHandle;
+                    return injectHandle.release();
                 }
             }
-        }
-
-        if (currentHandle != nullptr)
-        {
-            ::CloseHandle(currentHandle);
         }
 
         LogLine(L"[ConsoleMenuInjection] No matching conhost process was found.");
@@ -506,7 +508,7 @@ namespace
         }
 
         bool success = false;
-        HANDLE remoteThread = nullptr;
+        wil::unique_handle remoteThread;
         do
         {
             if (!::WriteProcessMemory(processHandle, remoteBuffer, dllPath.c_str(), bytes, nullptr))
@@ -531,7 +533,8 @@ namespace
                 break;
             }
 
-            const NTSTATUS createStatus = ntCreateThreadEx(&remoteThread,
+            HANDLE remoteThreadRaw = nullptr;
+            const NTSTATUS createStatus = ntCreateThreadEx(&remoteThreadRaw,
                                                            THREAD_ALL_ACCESS,
                                                            nullptr,
                                                            processHandle,
@@ -547,15 +550,16 @@ namespace
                 LogLine(L"[ConsoleMenuInjection] NtCreateThreadEx failed: " + FormatNtStatus(createStatus));
                 break;
             }
+            remoteThread.reset(remoteThreadRaw);
 
-            if (::WaitForSingleObject(remoteThread, 5000) != WAIT_OBJECT_0)
+            if (::WaitForSingleObject(remoteThread.get(), 5000) != WAIT_OBJECT_0)
             {
                 LogLine(L"[ConsoleMenuInjection] Waiting for remote LoadLibraryW timed out.");
                 break;
             }
 
             DWORD exitCode = 0;
-            if (!::GetExitCodeThread(remoteThread, &exitCode) || exitCode == 0)
+            if (!::GetExitCodeThread(remoteThread.get(), &exitCode) || exitCode == 0)
             {
                 std::wstringstream ss;
                 ss << L"[ConsoleMenuInjection] Remote LoadLibraryW exitCode=" << exitCode << L" gle="
@@ -570,10 +574,6 @@ namespace
             success = true;
         } while (false);
 
-        if (remoteThread != nullptr)
-        {
-            ::CloseHandle(remoteThread);
-        }
         ::VirtualFreeEx(processHandle, remoteBuffer, 0, MEM_RELEASE);
         return success;
     }
@@ -595,19 +595,23 @@ bool ConsoleMenu::EnsureConsoleHookInjected()
 
     for (int attempt = 0; attempt < 120; ++attempt)
     {
-        HANDLE processHandle = FindCurrentConsoleHostProcess();
-        if (processHandle != nullptr)
+        if (IsInjectionStopRequested())
         {
-            const DWORD processId = ::GetProcessId(processHandle);
+            LogLine(L"[ConsoleMenuInjection] Injection canceled by shutdown request.");
+            return false;
+        }
+
+        wil::unique_handle processHandle(FindCurrentConsoleHostProcess());
+        if (processHandle)
+        {
+            const DWORD processId = ::GetProcessId(processHandle.get());
             if (gInjectedConsoleHostProcessId == processId)
             {
                 LogLine(L"[ConsoleMenuInjection] Hook already injected into current conhost.");
-                ::CloseHandle(processHandle);
                 return true;
             }
 
-            const bool injected = InjectDllIntoProcess(processHandle, dllPath);
-            ::CloseHandle(processHandle);
+            const bool injected = InjectDllIntoProcess(processHandle.get(), dllPath);
             if (injected)
             {
                 gInjectedConsoleHostProcessId = processId;
@@ -615,7 +619,18 @@ bool ConsoleMenu::EnsureConsoleHookInjected()
             }
         }
 
-        ::Sleep(50);
+        if (gInjectionStopEvent)
+        {
+            if (::WaitForSingleObject(gInjectionStopEvent.get(), 50) == WAIT_OBJECT_0)
+            {
+                LogLine(L"[ConsoleMenuInjection] Injection canceled by shutdown request.");
+                return false;
+            }
+        }
+        else
+        {
+            ::Sleep(50);
+        }
     }
 
     LogLine(L"[ConsoleMenuInjection] Hook injection failed after retries.");
@@ -624,6 +639,36 @@ bool ConsoleMenu::EnsureConsoleHookInjected()
 
 namespace
 {
+    bool RequestStopAndJoinInjectionThread(DWORD timeoutMs)
+    {
+        if (gInjectionStopEvent)
+        {
+            (void)::SetEvent(gInjectionStopEvent.get());
+        }
+
+        if (!gInjectionThread)
+        {
+            gInjectionStopEvent.reset();
+            return true;
+        }
+
+        const DWORD currentThreadId = ::GetCurrentThreadId();
+        const DWORD injectionThreadId = ::GetThreadId(gInjectionThread.get());
+        if (injectionThreadId != 0 && injectionThreadId != currentThreadId)
+        {
+            const DWORD waitResult = ::WaitForSingleObject(gInjectionThread.get(), timeoutMs);
+            if (waitResult == WAIT_TIMEOUT)
+            {
+                LogLine(L"[ConsoleMenuInjection] Waiting for async injection thread timed out.");
+                return false;
+            }
+        }
+
+        gInjectionThread.reset();
+        gInjectionStopEvent.reset();
+        return true;
+    }
+
     DWORD WINAPI ConsoleHookInjectionThreadProc(LPVOID)
     {
         const bool injected = ConsoleMenu::EnsureConsoleHookInjected();
@@ -644,15 +689,24 @@ void ConsoleMenu::BeginConsoleHookInjectionAsync()
         return;
     }
 
-    if (gInjectionThread != nullptr)
+    if (!RequestStopAndJoinInjectionThread(kInjectionShutdownWaitMs))
     {
-        ::CloseHandle(gInjectionThread);
-        gInjectionThread = nullptr;
+        gInjectionInProgress.store(false);
+        LogLine(L"[ConsoleMenuInjection] Existing async injection thread did not stop in time.");
+        return;
+    }
+    gInjectionStopEvent.reset(::CreateEventW(nullptr, TRUE, FALSE, nullptr));
+    if (!gInjectionStopEvent)
+    {
+        gInjectionInProgress.store(false);
+        LogLine(L"[ConsoleMenuInjection] Failed to create async injection stop event.");
+        return;
     }
 
-    gInjectionThread = ::CreateThread(nullptr, 0, &ConsoleHookInjectionThreadProc, nullptr, 0, nullptr);
-    if (gInjectionThread == nullptr)
+    gInjectionThread.reset(::CreateThread(nullptr, 0, &ConsoleHookInjectionThreadProc, nullptr, 0, nullptr));
+    if (!gInjectionThread)
     {
+        gInjectionStopEvent.reset();
         gInjectionInProgress.store(false);
         std::wstringstream ss;
         ss << L"[ConsoleMenuInjection] Failed to create async injection thread. gle=" << ::GetLastError();
@@ -668,10 +722,6 @@ void ConsoleMenu::SetInjectionDiagnosticsEnabled(bool enabled) noexcept
 void ConsoleMenu::ResetConsoleHookState() noexcept
 {
     gInjectedConsoleHostProcessId = 0;
-    if (gInjectionThread != nullptr)
-    {
-        ::CloseHandle(gInjectionThread);
-        gInjectionThread = nullptr;
-    }
+    (void)RequestStopAndJoinInjectionThread(kInjectionShutdownWaitMs);
     gInjectionInProgress.store(false);
 }

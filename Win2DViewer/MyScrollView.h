@@ -22,6 +22,7 @@ public:
     int GetScrollLimit(int bar) const;
     void CheckScrollBars(BOOL& hasHorizontal, BOOL& hasVertical) const;
     void UpdateScrollMetrics();
+    void SetKeepScrollBarsVisible(bool keepVisible) noexcept { keepScrollBarsVisible = keepVisible; }
 
 protected:
     virtual void DrawClientRect(RECT& rect) {}
@@ -42,6 +43,7 @@ private:
     CSize totalSize{ 0, 0 };
     CSize pageDev{ 0, 0 };
     CSize lineDev{ 1, 1 };
+    bool keepScrollBarsVisible = false;
     wil::unique_hmodule themeModule;
     UpdatePanningFeedbackFn updatePanningFeedback = nullptr;
 };

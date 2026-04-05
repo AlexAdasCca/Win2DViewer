@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include <windows.h>
+#include <wil/resource.h>
 
 #include <sstream>
 #include <string>
@@ -40,33 +41,27 @@ namespace DiagnosticConsole
         }
 
         HANDLE consoleHandle = ::GetStdHandle(STD_OUTPUT_HANDLE);
+        wil::unique_hfile fallbackConsoleHandle;
         if (consoleHandle == nullptr || consoleHandle == INVALID_HANDLE_VALUE)
         {
-            consoleHandle =
-                ::CreateFileW(L"CONOUT$", GENERIC_WRITE, FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
-            if (consoleHandle == INVALID_HANDLE_VALUE)
+            fallbackConsoleHandle.reset(
+                ::CreateFileW(L"CONOUT$", GENERIC_WRITE, FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr));
+            if (!fallbackConsoleHandle)
             {
                 return;
             }
+            consoleHandle = fallbackConsoleHandle.get();
         }
 
         DWORD mode = 0;
         if (!::GetConsoleMode(consoleHandle, &mode))
         {
-            if (consoleHandle != ::GetStdHandle(STD_OUTPUT_HANDLE))
-            {
-                ::CloseHandle(consoleHandle);
-            }
             return;
         }
 
         DWORD written = 0;
         (void)::WriteConsoleW(consoleHandle, line.data(), static_cast<DWORD>(line.size()), &written, nullptr);
         (void)::WriteConsoleW(consoleHandle, L"\r\n", 2, &written, nullptr);
-        if (consoleHandle != ::GetStdHandle(STD_OUTPUT_HANDLE))
-        {
-            ::CloseHandle(consoleHandle);
-        }
     }
 
     inline void WriteLine(LineBuilder const& builder, bool mirrorToDebugger = true)

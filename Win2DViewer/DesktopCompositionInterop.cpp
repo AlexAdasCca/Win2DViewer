@@ -16,23 +16,22 @@ namespace DesktopInteropInternal
     std::wstring FormatLastErrorMessage(std::wstring_view context)
     {
         const DWORD errorCode = ::GetLastError();
-        wchar_t* systemMessage = nullptr;
+        wil::unique_hlocal_string systemMessage;
         ::FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
                          nullptr,
                          errorCode,
                          MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                         reinterpret_cast<LPWSTR>(&systemMessage),
+                         reinterpret_cast<LPWSTR>(systemMessage.addressof()),
                          0,
                          nullptr);
 
         std::wstring result{ context };
         result += L" failed. GetLastError=" + std::to_wstring(errorCode);
-        if (systemMessage != nullptr)
+        if (systemMessage)
         {
             result += L" (";
-            result += systemMessage;
+            result += systemMessage.get();
             result += L')';
-            ::LocalFree(systemMessage);
         }
 
         return result;

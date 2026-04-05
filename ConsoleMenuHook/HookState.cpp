@@ -92,8 +92,8 @@ namespace ConsoleMenuHook
         }
 
         const std::wstring eventName = ConsoleHookIpc::BuildConsoleCloseNotifyEventName(ownerPid);
-        HANDLE notifyEvent = ::OpenEventW(EVENT_MODIFY_STATE, FALSE, eventName.c_str());
-        if (notifyEvent == nullptr)
+        wil::unique_handle notifyEvent(::OpenEventW(EVENT_MODIFY_STATE, FALSE, eventName.c_str()));
+        if (!notifyEvent)
         {
             DiagnosticConsole::LineBuilder line;
             line << L"[ConsoleMenuHook] Console close notify open failed. source=" << source << L" ownerPid="
@@ -102,17 +102,15 @@ namespace ConsoleMenuHook
             return;
         }
 
-        if (!::SetEvent(notifyEvent))
+        if (!::SetEvent(notifyEvent.get()))
         {
             DiagnosticConsole::LineBuilder line;
             line << L"[ConsoleMenuHook] Console close notify SetEvent failed. source=" << source << L" ownerPid="
                  << ownerPid << L" gle=" << ::GetLastError();
             LogLine(line.str());
-            ::CloseHandle(notifyEvent);
             return;
         }
 
-        ::CloseHandle(notifyEvent);
         DiagnosticConsole::LineBuilder line;
         line << L"[ConsoleMenuHook] Console close notify sent. source=" << source << L" ownerPid=" << ownerPid;
         LogLine(line.str());

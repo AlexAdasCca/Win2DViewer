@@ -3,6 +3,7 @@
 #include <dwmapi.h>
 
 #include "DesktopCompositionInterop.h"
+#include "FileDialogService.h"
 #include "MainFrm.h"
 #include "SystemMenuExtensions.h"
 #include "Win2DViewer.h"
@@ -11,36 +12,13 @@
 
 namespace
 {
-    constexpr wchar_t kSvgFilter[] = L"SVG Files (*.svg)\0*.svg\0All Files (*.*)\0*.*\0";
-
     // Source: Windows SDK <dwmapi.h>, enums DWMWINDOWATTRIBUTE and
     // DWM_SYSTEMBACKDROP_TYPE (enum members).
-    constexpr DWORD kDwmAttrSystemBackdropType   = 38;    // DWMWA_SYSTEMBACKDROP_TYPE
-    constexpr DWORD kDwmAttrImmersiveDarkMode    = 20;    // DWMWA_USE_IMMERSIVE_DARK_MODE
-    constexpr DWORD kDwmAttrUseHostBackdropBrush = 17;    // DWMWA_USE_HOSTBACKDROPBRUSH
-    constexpr DWORD kDwmBackdropMainWindow       = 2;     // DWMSBT_MAINWINDOW
-    constexpr DWORD kDwmBackdropTransientWindow  = 3;     // DWMSBT_TRANSIENTWINDOW
-
-    std::optional<std::wstring> BrowseForSvgFile(HWND owner)
-    {
-        wchar_t filePath[MAX_PATH] = {};
-
-        OPENFILENAMEW ofn{};
-        ofn.lStructSize = sizeof(ofn);
-        ofn.hwndOwner = owner;
-        ofn.lpstrFilter = kSvgFilter;
-        ofn.lpstrFile = filePath;
-        ofn.nMaxFile = _countof(filePath);
-        ofn.Flags = OFN_FILEMUSTEXIST | OFN_HIDEREADONLY | OFN_EXPLORER;
-        ofn.lpstrDefExt = L"svg";
-
-        if (!::GetOpenFileNameW(&ofn))
-        {
-            return std::nullopt;
-        }
-
-        return std::wstring{ filePath };
-    }
+    constexpr DWORD kDwmAttrSystemBackdropType = 38; // DWMWA_SYSTEMBACKDROP_TYPE
+    constexpr DWORD kDwmAttrImmersiveDarkMode = 20; // DWMWA_USE_IMMERSIVE_DARK_MODE
+    constexpr DWORD kDwmAttrUseHostBackdropBrush = 17; // DWMWA_USE_HOSTBACKDROPBRUSH
+    constexpr DWORD kDwmBackdropMainWindow = 2; // DWMSBT_MAINWINDOW
+    constexpr DWORD kDwmBackdropTransientWindow = 3; // DWMSBT_TRANSIENTWINDOW
 
     UINT LayerModeToCommandId(CWin2DView::RenderLayerMode mode)
     {
@@ -197,7 +175,7 @@ LRESULT CMainFrame::OnFileNew(WORD, WORD, HWND, BOOL&)
 
 LRESULT CMainFrame::OnFileOpen(WORD, WORD, HWND, BOOL&)
 {
-    if (auto path = BrowseForSvgFile(m_hWnd); path.has_value())
+    if (auto path = FileDialogService::BrowseForSvgFile(m_hWnd); path.has_value())
     {
         OpenDocument(*path);
     }

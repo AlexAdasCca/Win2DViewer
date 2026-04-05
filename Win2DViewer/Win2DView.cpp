@@ -12,7 +12,7 @@ CWin2DView::CWin2DView() noexcept
 
 CWin2DView::~CWin2DView()
 {
-    renderTimer.stop();
+    StopRenderTimer();
 }
 
 BOOL CWin2DView::PreTranslateMessage(MSG* /*pMsg*/)
@@ -32,8 +32,7 @@ void CWin2DView::RefreshDocument()
         return;
     }
 
-    renderTimer.stop();
-    renderTickQueued.store(false, std::memory_order_release);
+    StopRenderTimer();
     KillTimer(Win2DViewInternal::kInertiaTimerId);
 
     RECT clientRect{};
@@ -48,11 +47,34 @@ void CWin2DView::RefreshDocument()
             svgDocument.Close();
             svgDocument = nullptr;
         }
+        // Reset retained SVG state eagerly when the document is cleared.
+        // Otherwise large XML and parsed text overlays can survive until the
+        // next load and look like a leak in process memory snapshots.
+        svgXml.clear();
+        svgDocumentWidth = 0.0f;
+        svgDocumentHeight = 0.0f;
+        svgTextOverlays.clear();
+        svgTextOverlays.shrink_to_fit();
+        svgLayerBitmap = nullptr;
+        svgLayerDirty = true;
+        UpdateScrollBarVisibilityPolicy();
 
         ScenarioWin2D(compositor, root, currentDpi, clientWidth, clientHeight);
         SetScrollSizes(MM_TEXT, CSize(clientWidth, clientHeight));
         transformMatrix = Win2DViewInternal::IdentityTransform();
         ScrollToPosition(CPoint(0, 0));
+        if (drawingSurface != nullptr)
+        {
+            // Force a full clear pass immediately so stale content is removed
+            // even if the next WM_PAINT update region is partial.
+            (void)Redraw(clientWidth / 4.0f,
+                         clientHeight / 4.0f,
+                         300.0f,
+                         300.0f,
+                         static_cast<float>(clientWidth),
+                         static_cast<float>(clientHeight),
+                         currentDpi);
+        }
         Invalidate();
         return;
     }
@@ -64,6 +86,8 @@ void CWin2DView::RefreshDocument()
         svgDocument.Close();
         svgDocument = nullptr;
     }
+    svgLayerBitmap = nullptr;
+    svgLayerDirty = true;
 
     if (LoadSvg())
     {
@@ -85,14 +109,55 @@ void CWin2DView::SetRenderLayerMode(RenderLayerMode mode)
     }
 
     renderLayerMode = mode;
+    UpdateScrollBarVisibilityPolicy();
+
+    if (renderLayerMode == RenderLayerMode::SvgOnly)
+    {
+        // SvgOnly does not consume effect history. Release effect caches
+        // immediately to avoid stale visuals and unnecessary memory retention.
+        StopRenderTimer();
+        sceneBitmap = nullptr;
+        trailBitmap = nullptr;
+        effectsTextBitmap = nullptr;
+        lastRenderTickTime = std::chrono::steady_clock::time_point{};
+    }
+
     if (IsWindow())
     {
         ScenarioWin2D(compositor, root, currentDpi, width, height);
+        if (drawingSurface != nullptr && width > 0 && height > 0)
+        {
+            (void)Redraw(width / 4.0f,
+                         height / 4.0f,
+                         300.0f,
+                         300.0f,
+                         static_cast<float>(width),
+                         static_cast<float>(height),
+                         currentDpi);
+        }
         Invalidate();
+    }
+}
+
+void CWin2DView::UpdateScrollBarVisibilityPolicy()
+{
+    const bool hasLoadedSvg = (svgDocument != nullptr && svgDocumentWidth > 0.0f && svgDocumentHeight > 0.0f);
+    const bool effectAndSvgVisible = hasLoadedSvg && (renderLayerMode == RenderLayerMode::EffectsOverSvg ||
+                                                      renderLayerMode == RenderLayerMode::SvgOverEffects);
+
+    SetKeepScrollBarsVisible(effectAndSvgVisible);
+    if (IsWindow())
+    {
+        UpdateScrollMetrics();
     }
 }
 
 bool CWin2DView::ShouldAnimateEffects() const noexcept
 {
     return renderLayerMode != RenderLayerMode::SvgOnly;
+}
+
+CWin2DView::RenderUpdatePolicy CWin2DView::GetRenderUpdatePolicy() const noexcept
+{
+    return ShouldAnimateEffects() ? RenderUpdatePolicy::DynamicFullFrame : RenderUpdatePolicy::StaticOptimized;
 }

@@ -164,6 +164,8 @@ bool CWin2DView::LoadSvg()
         {
             svgDocument.Close();
         }
+        svgLayerBitmap = nullptr;
+        svgLayerDirty = true;
 
         auto canvasDevice = Win2DViewNs::mgc::CanvasDevice::GetSharedDevice();
         svgDocument = Win2DViewNs::mgcs::CanvasSvgDocument::LoadFromXml(canvasDevice, svgXml);
@@ -215,8 +217,11 @@ bool CWin2DView::LoadSvg()
     }
 
     SetScrollSizes(MM_TEXT, CSize(static_cast<int>(svgDocumentWidth), static_cast<int>(svgDocumentHeight)));
+    UpdateScrollBarVisibilityPolicy();
     transformMatrix = Win2DViewInternal::IdentityTransform();
     ScrollToPosition(CPoint(0, 0));
+    svgLayerBitmap = nullptr;
+    svgLayerDirty = true;
     if (consoleDebugEnabled)
     {
         std::wstringstream ss;

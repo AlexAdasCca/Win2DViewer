@@ -303,6 +303,7 @@
     <ClInclude Include="ConsoleDebugMessages.h" />
     <ClInclude Include="ConsoleMenuInjection.h" />
     <ClInclude Include="ConsoleTextWriter.h" />
+    <ClInclude Include="FileDialogService.h" />
     <ClInclude Include="DisplaySyncHelper.h" />
     <ClInclude Include="DesktopCompositionInterop.h" />
     <ClInclude Include="DesktopCompositionInteropInternal.h" />
@@ -313,6 +314,7 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="CallBackTimer.h" />
+    <ClInclude Include="WaitableRenderTimer.h" />
     <ClInclude Include="Win2DViewer.h" />
     <ClInclude Include="WinrtNsAliases.h" />
     <ClInclude Include="Win2DViewInternal.h" />
@@ -331,6 +333,7 @@
     <ClCompile Include="ConsoleMenuInjection.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="FileDialogService.cpp" />
     <ClCompile Include="DesktopCompositionInterop.cpp" />
     <ClCompile Include="DesktopInteropDComp.cpp" />
     <ClCompile Include="DesktopInteropPanel.cpp" />
@@ -357,6 +360,7 @@
     </ClCompile>
     <ClCompile Include="Win2DViewer.cpp" />
     <ClCompile Include="SvgDocument.cpp" />
+    <ClCompile Include="WaitableRenderTimer.cpp" />
     <ClCompile Include="Win2DView.cpp" />
     <ClCompile Include="Win2DViewConsoleDebug.cpp" />
     <ClCompile Include="Win2DViewInput.cpp" />

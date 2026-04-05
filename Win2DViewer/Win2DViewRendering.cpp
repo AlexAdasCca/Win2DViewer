@@ -2,6 +2,126 @@
 
 #include "Win2DViewInternal.h"
 
+namespace
+{
+    std::chrono::nanoseconds GetNormalRenderInterval()
+    {
+        return std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::duration<double, std::milli>(1000.0 / 60.0));
+    }
+}
+
+void CWin2DView::StopRenderTimer() noexcept
+{
+    renderTimer.Stop();
+    renderTickQueued.store(false, std::memory_order_release);
+    activeRenderIntervalNs = std::chrono::nanoseconds(0);
+    lastRenderTickTime = std::chrono::steady_clock::time_point{};
+}
+
+void CWin2DView::QueueRenderTick()
+{
+    if (!::IsWindow(m_hWnd))
+    {
+        return;
+    }
+
+    if (!renderTickQueued.exchange(true, std::memory_order_acq_rel))
+    {
+        if (!::PostMessage(m_hWnd, Win2DViewInternal::kRenderTickMsg, 0, 0))
+        {
+            renderTickQueued.store(false, std::memory_order_release);
+        }
+    }
+}
+
+void CWin2DView::MarkSvgLayerDirty() noexcept
+{
+    svgLayerDirty = true;
+}
+
+bool CWin2DView::RenderSvgLayer(wna::cv::core::ICanvasResourceCreator const& resourceCreator,
+                                float viewportWidth,
+                                float viewportHeight,
+                                wna::wd::num::float3x2 const& viewTransform)
+{
+    if (svgDocument == nullptr || viewportWidth <= 0.0f || viewportHeight <= 0.0f)
+    {
+        svgLayerBitmap = nullptr;
+        svgLayerDirty = false;
+        return false;
+    }
+
+    bool recreateBitmap = (svgLayerBitmap == nullptr);
+    if (!recreateBitmap)
+    {
+        const auto size = svgLayerBitmap.Size();
+        recreateBitmap =
+            (std::fabs(size.Width - viewportWidth) > 0.5f || std::fabs(size.Height - viewportHeight) > 0.5f);
+    }
+
+    if (recreateBitmap)
+    {
+        svgLayerBitmap = Win2DViewNs::mgc::CanvasRenderTarget(
+            resourceCreator, viewportWidth, viewportHeight, Win2DViewInternal::kPixelsDpi);
+    }
+
+    auto session = svgLayerBitmap.CreateDrawingSession();
+    auto transparent = Win2DViewNs::wui::Colors::Black();
+    transparent.A = 0;
+    session.Clear(transparent);
+
+    session.Transform(viewTransform);
+    const float svgWidth = (svgDocumentWidth > 0.0f) ? svgDocumentWidth : viewportWidth;
+    const float svgHeight = (svgDocumentHeight > 0.0f) ? svgDocumentHeight : viewportHeight;
+    session.DrawSvg(svgDocument, Win2DViewNs::wf::Size(svgWidth, svgHeight));
+    DrawSvgTextOverlay(session, viewTransform);
+    session.Close();
+
+    svgLayerDirty = false;
+    return true;
+}
+
+void CWin2DView::TryStartRenderTimer()
+{
+    if (!::IsWindow(m_hWnd) || !ShouldAnimateEffects() || drawingSurface == nullptr || width <= 0 || height <= 0)
+    {
+        StopRenderTimer();
+        return;
+    }
+
+    const std::chrono::nanoseconds desiredInterval = GetNormalRenderInterval();
+    const bool restartRequired = !renderTimer.IsRunning() || desiredInterval != activeRenderIntervalNs;
+    if (restartRequired)
+    {
+        const bool timerStarted = renderTimer.Start(desiredInterval, [this]() {
+            if (!::IsWindow(m_hWnd))
+            {
+                return false;
+            }
+
+            if (!renderTickQueued.exchange(true, std::memory_order_acq_rel))
+            {
+                if (!::PostMessage(m_hWnd, Win2DViewInternal::kRenderTickMsg, 0, 0))
+                {
+                    renderTickQueued.store(false, std::memory_order_release);
+                    return false;
+                }
+            }
+            return true;
+        });
+        if (!timerStarted)
+        {
+            StopRenderTimer();
+            return;
+        }
+
+        activeRenderIntervalNs = desiredInterval;
+    }
+
+    QueueRenderTick();
+}
+
 Win2DViewNs::wud::DesktopWindowTarget CWin2DView::CreateDesktopWindowTarget(
     Win2DViewNs::wuc::Compositor const& compositor,
     HWND window)
@@ -33,7 +153,7 @@ void CWin2DView::PrepareVisuals(Win2DViewNs::wuc::Compositor const& compositor)
 void CWin2DView::OnDirect3DDeviceLost(DeviceLostHelper const*, DeviceLostEventArgs const&)
 {
     inDeviceLost = true;
-    renderTimer.stop();
+    StopRenderTimer();
 
     auto canvasDevice = Win2DViewNs::mgc::CanvasDevice::GetSharedDevice();
     Win2DViewNs::wr::com_ptr<ABI::Windows::UI::Composition::ICompositionGraphicsDeviceInterop> graphicsDeviceInterop{
@@ -48,8 +168,11 @@ void CWin2DView::OnDirect3DDeviceLost(DeviceLostHelper const*, DeviceLostEventAr
     Win2DViewNs::wr::check_hresult(graphicsDeviceInterop->SetRenderingDevice(d2dDevice.get()));
 
     drawingSurface = nullptr;
+    svgLayerBitmap = nullptr;
     sceneBitmap = nullptr;
     trailBitmap = nullptr;
+    effectsTextBitmap = nullptr;
+    svgLayerDirty = true;
     if (svgDocument != nullptr)
     {
         svgDocument.Close();
@@ -68,12 +191,13 @@ void CWin2DView::ScenarioWin2D(Win2DViewNs::wuc::Compositor const& compositor,
 {
     if (inDeviceLost || cx <= 0 || cy <= 0)
     {
+        StopRenderTimer();
         return;
     }
 
     if (width != cx || height != cy || drawingSurface == nullptr)
     {
-        renderTimer.stop();
+        StopRenderTimer();
         width = cx;
         height = cy;
 
@@ -115,6 +239,9 @@ void CWin2DView::ScenarioWin2D(Win2DViewNs::wuc::Compositor const& compositor,
 
             sceneBitmap = nullptr;
             trailBitmap = nullptr;
+            effectsTextBitmap = nullptr;
+            svgLayerBitmap = nullptr;
+            svgLayerDirty = true;
             CreateFlameEffect();
             displayText.clear();
 
@@ -128,28 +255,11 @@ void CWin2DView::ScenarioWin2D(Win2DViewNs::wuc::Compositor const& compositor,
         }
         catch (Win2DViewNs::wr::hresult_error const&)
         {
-            renderTimer.stop();
+            StopRenderTimer();
         }
     }
-
-    if (ShouldAnimateEffects())
-    {
-        renderTimer.start(1000.0 / 60.0, [this, dpi]() {
-            if (!::IsWindow(m_hWnd))
-            {
-                return false;
-            }
-            if (!renderTickQueued.exchange(true, std::memory_order_acq_rel))
-            {
-                ::PostMessage(m_hWnd, Win2DViewInternal::kRenderTickMsg, static_cast<WPARAM>(dpi), 0);
-            }
-            return true;
-        });
-    }
-    else
-    {
-        renderTimer.stop();
-    }
+    (void)dpi;
+    TryStartRenderTimer();
 }
 
 bool CWin2DView::Redraw(float cx, float cy, float wx, float wy, float width, float height, UINT dpi, CRect* clipRect)
@@ -189,6 +299,10 @@ bool CWin2DView::Redraw(float cx, float cy, float wx, float wy, float width, flo
                     resourceCreator, sceneWidth, sceneHeight, Win2DViewInternal::kPixelsDpi);
                 trailBitmap = Win2DViewNs::mgc::CanvasRenderTarget(
                     resourceCreator, sceneWidth, sceneHeight, Win2DViewInternal::kPixelsDpi);
+                // Reuse a persistent text render target instead of creating a
+                // full-size temporary bitmap every frame during animation.
+                effectsTextBitmap = Win2DViewNs::mgc::CanvasRenderTarget(
+                    resourceCreator, sceneWidth, sceneHeight, Win2DViewInternal::kPixelsDpi);
                 newBitmap = true;
             }
             else if (trailBitmap == nullptr)
@@ -196,6 +310,11 @@ bool CWin2DView::Redraw(float cx, float cy, float wx, float wy, float width, flo
                 trailBitmap = Win2DViewNs::mgc::CanvasRenderTarget(
                     resourceCreator, sceneWidth, sceneHeight, Win2DViewInternal::kPixelsDpi);
                 newBitmap = true;
+            }
+            else if (effectsTextBitmap == nullptr)
+            {
+                effectsTextBitmap = Win2DViewNs::mgc::CanvasRenderTarget(
+                    resourceCreator, sceneWidth, sceneHeight, Win2DViewInternal::kPixelsDpi);
             }
 
             auto drawingSession = sceneBitmap.CreateDrawingSession();
@@ -228,9 +347,7 @@ bool CWin2DView::Redraw(float cx, float cy, float wx, float wy, float width, flo
 
             const Win2DViewNs::wr::hstring message{ L"Hello Win2D in WTL!" };
             const Win2DViewNs::wf::Rect textRect{ 0, 0, sceneWidth, sceneHeight };
-            Win2DViewNs::mgc::CanvasRenderTarget textBitmap(
-                resourceCreator, sceneWidth, sceneHeight, Win2DViewInternal::kPixelsDpi);
-            auto textSession = textBitmap.CreateDrawingSession();
+            auto textSession = effectsTextBitmap.CreateDrawingSession();
             auto textClear = Win2DViewNs::wui::Colors::Black();
             textClear.A = 0;
             textSession.Clear(textClear);
@@ -239,7 +356,7 @@ bool CWin2DView::Redraw(float cx, float cy, float wx, float wy, float width, flo
 
             Win2DViewNs::mgce::GaussianBlurEffect blur;
             blur.BlurAmount(5);
-            blur.Source(textBitmap);
+            blur.Source(effectsTextBitmap);
             drawingSession.DrawImage(blur);
 
             const auto newFontSize = Win2DViewInternal::GetFontSize(sceneWidth);
@@ -264,133 +381,160 @@ bool CWin2DView::Redraw(float cx, float cy, float wx, float wy, float width, flo
         };
 
         const bool hasSvg = (svgDocument != nullptr);
-        const bool renderEffectsOnly = renderLayerMode == RenderLayerMode::EffectsOnly;
-        if (document == nullptr || document->Empty() || renderEffectsOnly)
+        const bool drawSvg = hasSvg && renderLayerMode != RenderLayerMode::EffectsOnly;
+        const bool drawEffects = renderLayerMode != RenderLayerMode::SvgOnly;
+        const float viewportWidth = std::max(1.0f, width);
+        const float viewportHeight = std::max(1.0f, height);
+
+        auto viewTransform = Win2DViewInternal::IdentityTransform();
+        if (hasSvg)
         {
-            Win2DViewNs::mgc::CanvasDrawingSession rootSession{ nullptr };
-            auto outputTransform = Win2DViewInternal::IdentityTransform();
-            if (clipRect == nullptr)
+            viewTransform = transformMatrix;
+        }
+
+        // Partial update rectangles are fragile when a full-screen effect layer
+        // is present. Keep partial rendering only for static SVG-only frames.
+        const bool usePartialUpdate =
+            (clipRect != nullptr && GetRenderUpdatePolicy() == RenderUpdatePolicy::StaticOptimized && !drawEffects);
+
+        // The composition surface is allocated with integral pixel dimensions from
+        // CWin2DView::width/height. Build update rectangles from those exact
+        // dimensions to avoid float-to-int drift between caller parameters and
+        // actual surface size.
+        const int surfacePixelWidth = std::max(1, this->width);
+        const int surfacePixelHeight = std::max(1, this->height);
+
+        CRect effectiveClipRect(0, 0, surfacePixelWidth, surfacePixelHeight);
+        if (usePartialUpdate)
+        {
+            CRect requestedClip(*clipRect);
+            requestedClip.NormalizeRect();
+            CRect surfaceRect(0, 0, surfacePixelWidth, surfacePixelHeight);
+            // CanvasComposition rejects invalid update rectangles with
+            // E_INVALIDARG. Normalize and clamp to surface bounds before
+            // calling CreateDrawingSessionWithUpdateRect.
+            if (!effectiveClipRect.IntersectRect(requestedClip, surfaceRect) || effectiveClipRect.IsRectEmpty())
             {
-                Win2DViewNs::wf::Rect updateRect(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height));
-                rootSession = Win2DViewNs::mgcu::CanvasComposition::CreateDrawingSession(drawingSurface, updateRect);
-                rootSession.Clear(clearColor);
+                // Empty or out-of-bounds update rectangles can trigger E_INVALIDARG in
+                // CanvasComposition::CreateDrawingSessionWithUpdateRect.
+                return true;
             }
-            else
+        }
+
+        Win2DViewNs::mgc::CanvasDrawingSession session{ nullptr };
+        if (usePartialUpdate)
+        {
+            Win2DViewNs::wf::Rect updateRect(static_cast<float>(effectiveClipRect.left),
+                                             static_cast<float>(effectiveClipRect.top),
+                                             static_cast<float>(effectiveClipRect.Width()),
+                                             static_cast<float>(effectiveClipRect.Height()));
+            session = Win2DViewNs::mgcu::CanvasComposition::CreateDrawingSession(drawingSurface, updateRect);
+        }
+        else
+        {
+            // Full-frame rendering should not go through update-rect sessions.
+            // In practice, Win2D projection may surface first-chance E_INVALIDARG
+            // from CreateDrawingSessionWithUpdateRect during transition timing.
+            // Using the full-surface overload removes that failure mode.
+            session = Win2DViewNs::mgcu::CanvasComposition::CreateDrawingSession(drawingSurface);
+        }
+
+        session.Antialiasing(Win2DViewNs::mgc::CanvasAntialiasing::Antialiased);
+
+        Win2DViewNs::wr::com_ptr<ID2D1RenderTarget> target{ nullptr };
+        if (usePartialUpdate)
+        {
+            Win2DViewNs::wr::com_ptr<ABI::Microsoft::Graphics::Canvas::ICanvasResourceWrapperNative>
+                nativeDeviceWrapper = session.as<ABI::Microsoft::Graphics::Canvas::ICanvasResourceWrapperNative>();
+            Win2DViewNs::wr::check_hresult(nativeDeviceWrapper->GetNativeResource(
+                nullptr, 0.0f, Win2DViewNs::wr::guid_of<ID2D1RenderTarget>(), target.put_void()));
+
+            D2D1_RECT_F clip{};
+            clip.left = 0;
+            clip.top = 0;
+            clip.right = static_cast<float>(effectiveClipRect.Width());
+            clip.bottom = static_cast<float>(effectiveClipRect.Height());
+            target->PushAxisAlignedClip(clip, D2D1_ANTIALIAS_MODE_ALIASED);
+        }
+
+        auto transparent = Win2DViewNs::wui::Colors::Black();
+        transparent.A = 0;
+        session.Clear(transparent);
+
+        auto resourceCreator = session.as<Win2DViewNs::mgc::ICanvasResourceCreator>();
+
+        if (drawEffects)
+        {
+            renderEffectsFrame(resourceCreator, viewportWidth, viewportHeight);
+        }
+        else
+        {
+            sceneBitmap = nullptr;
+            trailBitmap = nullptr;
+            effectsTextBitmap = nullptr;
+        }
+
+        if (drawSvg)
+        {
+            bool recreateSvgLayer = (svgLayerBitmap == nullptr);
+            if (!recreateSvgLayer)
             {
-                Win2DViewNs::wf::Rect updateRect(static_cast<float>(clipRect->left),
-                                                 static_cast<float>(clipRect->top),
-                                                 static_cast<float>(clipRect->Width()),
-                                                 static_cast<float>(clipRect->Height()));
-                rootSession = Win2DViewNs::mgcu::CanvasComposition::CreateDrawingSession(drawingSurface, updateRect);
-                if (!(hasSvg && renderEffectsOnly))
+                const auto size = svgLayerBitmap.Size();
+                recreateSvgLayer =
+                    (std::fabs(size.Width - viewportWidth) > 0.5f || std::fabs(size.Height - viewportHeight) > 0.5f);
+            }
+
+            if (recreateSvgLayer)
+            {
+                svgLayerDirty = true;
+            }
+
+            if (svgLayerDirty)
+            {
+                if (!RenderSvgLayer(resourceCreator, viewportWidth, viewportHeight, viewTransform))
                 {
-                    outputTransform.m31 -= static_cast<float>(clipRect->left);
-                    outputTransform.m32 -= static_cast<float>(clipRect->top);
+                    return false;
                 }
             }
-
-            float sceneWidth = std::max(1.0f, width);
-            float sceneHeight = std::max(1.0f, height);
-            if (!(hasSvg && renderEffectsOnly))
-            {
-                outputTransform.m31 += transformMatrix.m31;
-                outputTransform.m32 += transformMatrix.m32;
-
-                const auto total = GetTotalSize();
-                sceneWidth = std::max<float>(static_cast<float>(total.cx), width);
-                sceneHeight = std::max<float>(static_cast<float>(total.cy), height);
-            }
-
-            auto resourceCreator = rootSession.as<Win2DViewNs::mgc::ICanvasResourceCreator>();
-            renderEffectsFrame(resourceCreator, sceneWidth, sceneHeight);
-
-            rootSession.Transform(outputTransform);
-            rootSession.DrawImage(sceneBitmap);
-            rootSession.Close();
-            return true;
         }
-
-        if (svgDocument != nullptr)
+        else
         {
-            Win2DViewNs::mgc::CanvasDrawingSession session = nullptr;
-            auto transform = transformMatrix;
-
-            if (clipRect == nullptr)
-            {
-                Win2DViewNs::wf::Rect updateRect(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height));
-                session = Win2DViewNs::mgcu::CanvasComposition::CreateDrawingSession(drawingSurface, updateRect);
-            }
-            else
-            {
-                Win2DViewNs::wf::Rect updateRect(static_cast<float>(clipRect->left),
-                                                 static_cast<float>(clipRect->top),
-                                                 static_cast<float>(clipRect->Width()),
-                                                 static_cast<float>(clipRect->Height()));
-                session = Win2DViewNs::mgcu::CanvasComposition::CreateDrawingSession(drawingSurface, updateRect);
-                transform.m31 -= static_cast<float>(clipRect->left);
-                transform.m32 -= static_cast<float>(clipRect->top);
-            }
-
-            session.Antialiasing(Win2DViewNs::mgc::CanvasAntialiasing::Antialiased);
-
-            Win2DViewNs::wr::com_ptr<ID2D1RenderTarget> target{ nullptr };
-            if (clipRect != nullptr)
-            {
-                Win2DViewNs::wr::com_ptr<ABI::Microsoft::Graphics::Canvas::ICanvasResourceWrapperNative>
-                    nativeDeviceWrapper = session.as<ABI::Microsoft::Graphics::Canvas::ICanvasResourceWrapperNative>();
-                Win2DViewNs::wr::check_hresult(nativeDeviceWrapper->GetNativeResource(
-                    nullptr, 0.0f, Win2DViewNs::wr::guid_of<ID2D1RenderTarget>(), target.put_void()));
-
-                D2D1_RECT_F clip{};
-                clip.left = 0;
-                clip.top = 0;
-                clip.right = static_cast<float>(clipRect->Width());
-                clip.bottom = static_cast<float>(clipRect->Height());
-                target->PushAxisAlignedClip(clip, D2D1_ANTIALIAS_MODE_ALIASED);
-            }
-
-            auto transparent = Win2DViewNs::wui::Colors::Black();
-            transparent.A = 0;
-            session.Clear(transparent);
-
-            const bool drawSvg = renderLayerMode != RenderLayerMode::EffectsOnly;
-            const bool drawEffects = renderLayerMode != RenderLayerMode::SvgOnly;
-            const float effectWidth = std::max(1.0f, width);
-            const float effectHeight = std::max(1.0f, height);
-
-            if (drawEffects)
-            {
-                auto resourceCreator = session.as<Win2DViewNs::mgc::ICanvasResourceCreator>();
-                renderEffectsFrame(resourceCreator, effectWidth, effectHeight);
-            }
-
-            if (renderLayerMode == RenderLayerMode::SvgOverEffects && drawEffects)
-            {
-                session.Transform(Win2DViewInternal::IdentityTransform());
-                session.DrawImage(sceneBitmap);
-            }
-
-            if (drawSvg)
-            {
-                session.Transform(transform);
-                session.DrawSvg(svgDocument,
-                                Win2DViewNs::wf::Size(static_cast<float>(width), static_cast<float>(height)));
-                DrawSvgTextOverlay(session, transform);
-            }
-
-            if (renderLayerMode == RenderLayerMode::EffectsOverSvg && drawEffects)
-            {
-                session.Transform(Win2DViewInternal::IdentityTransform());
-                session.DrawImage(sceneBitmap);
-            }
-
-            if (clipRect != nullptr)
-            {
-                target->PopAxisAlignedClip();
-            }
-
-            session.Close();
+            svgLayerBitmap = nullptr;
+            svgLayerDirty = false;
         }
+
+        auto outputTransform = Win2DViewInternal::IdentityTransform();
+        if (usePartialUpdate)
+        {
+            // Update-rect drawing sessions use a local origin at the update
+            // rectangle. Shift full-surface images so the clipped region maps
+            // to the correct global location on the composition surface.
+            outputTransform.m31 = -static_cast<float>(effectiveClipRect.left);
+            outputTransform.m32 = -static_cast<float>(effectiveClipRect.top);
+        }
+        session.Transform(outputTransform);
+
+        if (drawEffects && renderLayerMode != RenderLayerMode::EffectsOverSvg)
+        {
+            session.DrawImage(sceneBitmap);
+        }
+
+        if (drawSvg && svgLayerBitmap != nullptr)
+        {
+            session.DrawImage(svgLayerBitmap);
+        }
+
+        if (drawEffects && renderLayerMode == RenderLayerMode::EffectsOverSvg)
+        {
+            session.DrawImage(sceneBitmap);
+        }
+
+        if (usePartialUpdate)
+        {
+            target->PopAxisAlignedClip();
+        }
+
+        session.Close();
     }
     catch (Win2DViewNs::wr::hresult_error const&)
     {
@@ -477,34 +621,40 @@ void CWin2DView::ConfigureEffect()
 
 void CWin2DView::DrawClientRect(RECT& rect)
 {
-    if (svgDocument == nullptr)
+    if (GetRenderUpdatePolicy() == RenderUpdatePolicy::DynamicFullFrame)
     {
+        QueueRenderTick();
         return;
     }
 
     CRect clip(rect);
     if (!clip.IsRectEmpty() && width > 0 && height > 0)
     {
+        // Static SVG redraw prefers full-frame update to avoid edge artifacts
+        // from incremental stripe repaint during scroll and zoom operations.
         Redraw(width / 4.0f,
                height / 4.0f,
                300.0f,
                300.0f,
                static_cast<float>(width),
                static_cast<float>(height),
-               currentDpi,
-               &clip);
+               currentDpi);
     }
 }
 
 void CWin2DView::OnScrollPositionChanging(CPoint /*oldPos*/, CPoint newPos)
 {
-    if (svgDocument != nullptr)
-    {
-        SurfaceScroll(newPos);
-    }
-
     transformMatrix.m31 = static_cast<float>(-newPos.x);
     transformMatrix.m32 = static_cast<float>(-newPos.y);
+    if (svgDocument != nullptr)
+    {
+        MarkSvgLayerDirty();
+    }
+
+    if (GetRenderUpdatePolicy() == RenderUpdatePolicy::DynamicFullFrame)
+    {
+        QueueRenderTick();
+    }
 }
 
 LRESULT CWin2DView::OnCreate(UINT, WPARAM, LPARAM, BOOL&)
@@ -522,12 +672,14 @@ LRESULT CWin2DView::OnCreate(UINT, WPARAM, LPARAM, BOOL&)
 
 LRESULT CWin2DView::OnDestroy(UINT, WPARAM, LPARAM, BOOL&)
 {
-    renderTimer.stop();
-    renderTickQueued.store(false, std::memory_order_release);
+    StopRenderTimer();
     KillTimer(Win2DViewInternal::kInertiaTimerId);
     drawingSurface = nullptr;
+    svgLayerBitmap = nullptr;
     sceneBitmap = nullptr;
     trailBitmap = nullptr;
+    effectsTextBitmap = nullptr;
+    svgLayerDirty = true;
     if (svgDocument != nullptr)
     {
         svgDocument.Close();
@@ -543,8 +695,7 @@ LRESULT CWin2DView::OnSize(UINT, WPARAM wParam, LPARAM lParam, BOOL&)
     const UINT sizeType = static_cast<UINT>(wParam);
     if (sizeType == SIZE_MINIMIZED)
     {
-        renderTimer.stop();
-        renderTickQueued.store(false, std::memory_order_release);
+        StopRenderTimer();
         return 0;
     }
 
@@ -573,7 +724,14 @@ LRESULT CWin2DView::OnPaint(UINT, WPARAM, LPARAM, BOOL&)
     BeginPaint(&ps);
     EndPaint(&ps);
 
-    if (svgDocument != nullptr && width > 0 && height > 0 && drawingSurface != nullptr)
+    // WM_PAINT may carry an empty region. Skip redraw to avoid constructing
+    // a zero-area update rect for Win2D composition APIs.
+    if (ps.rcPaint.right <= ps.rcPaint.left || ps.rcPaint.bottom <= ps.rcPaint.top)
+    {
+        return 0;
+    }
+
+    if (width > 0 && height > 0 && drawingSurface != nullptr)
     {
         CRect clip(ps.rcPaint);
         Redraw(width / 4.0f,
@@ -606,13 +764,23 @@ LRESULT CWin2DView::OnRenderTick(UINT, WPARAM wParam, LPARAM, BOOL&)
 
     if (!ShouldAnimateEffects() || drawingSurface == nullptr || width <= 0 || height <= 0)
     {
+        lastRenderTickTime = std::chrono::steady_clock::time_point{};
         return 0;
     }
+
+    const auto now = std::chrono::steady_clock::now();
+    double deltaSeconds = 1.0 / 60.0;
+    if (lastRenderTickTime.time_since_epoch().count() != 0)
+    {
+        deltaSeconds = std::chrono::duration<double>(now - lastRenderTickTime).count();
+        deltaSeconds = std::clamp(deltaSeconds, 0.0, 0.05);
+    }
+    lastRenderTickTime = now;
 
     const UINT dpi = wParam != 0 ? static_cast<UINT>(wParam) : static_cast<UINT>(currentDpi);
     if (Redraw(width / 4.0f, height / 4.0f, 300.0f, 300.0f, static_cast<float>(width), static_cast<float>(height), dpi))
     {
-        angle += 1.0f;
+        angle += static_cast<float>(60.0 * deltaSeconds);
     }
 
     return 0;

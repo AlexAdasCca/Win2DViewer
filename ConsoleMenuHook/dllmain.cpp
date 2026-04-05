@@ -11,8 +11,8 @@ BOOL APIENTRY DllMain(HMODULE moduleHandle, DWORD reason, LPVOID)
         case DLL_PROCESS_ATTACH:
             ::DisableThreadLibraryCalls(moduleHandle);
             ConsoleMenuHook::LogLine(L"[ConsoleMenuHook] DLL_PROCESS_ATTACH");
-            runtimeState.InitThread =
-                ::CreateThread(nullptr, 0, &ConsoleMenuHook::InitializeConsoleMenuThread, nullptr, 0, nullptr);
+            runtimeState.InitThread.reset(
+                ::CreateThread(nullptr, 0, &ConsoleMenuHook::InitializeConsoleMenuThread, nullptr, 0, nullptr));
             break;
 
         case DLL_PROCESS_DETACH:

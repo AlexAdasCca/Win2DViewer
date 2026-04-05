@@ -1,19 +1,21 @@
 ﻿#include "pch.h"
 
-#include <DispatcherQueue.h>
-#include <ShellScalingAPI.h>
-#include <Windows.Graphics.Interop.h>
 #include <cstdio>
+#include <regex>
+#include <sstream>
+#include <unordered_map>
+#include <vector>
+
 #include <d2d1.h>
 #include <d2d1_1.h>
 #include <d2d1_3.h>
 #include <d2d1helper.h>
 #include <d3d11.h>
 #include <d3d11_4.h>
-#include <regex>
-#include <sstream>
-#include <unordered_map>
-#include <vector>
+
+#include <ShellScalingAPI.h>
+#include <DispatcherQueue.h>
+#include <Windows.Graphics.Interop.h>
 #include <windows.ui.composition.interop.h>
 
 #include <winrt/Windows.Foundation.Collections.h>
@@ -539,11 +541,8 @@ namespace Win2DViewInternal
         Win2DViewNs::wr::check_hresult(nativeDeviceWrapper->GetNativeResource(
             nullptr, 0.0f, Win2DViewNs::wr::guid_of<ID2D1Device2>(), d2dDevice.put_void()));
 
-        IDXGIDevice* dxgiDeviceRaw = nullptr;
-        Win2DViewNs::wr::check_hresult(d2dDevice->GetDxgiDevice(&dxgiDeviceRaw));
-
         Win2DViewNs::wr::com_ptr<::IDXGIDevice> dxgiDevice;
-        dxgiDevice.attach(dxgiDeviceRaw);
+        Win2DViewNs::wr::check_hresult(d2dDevice->GetDxgiDevice(dxgiDevice.put()));
         return dxgiDevice;
     }
 } // namespace Win2DViewInternal

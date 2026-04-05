@@ -62,7 +62,7 @@ void CMyScrollView::UpdateScrollBar(UINT bar)
     si.nPage = static_cast<UINT>(std::max<int>(0, page));
     si.nPos = std::max<int>(0, current);
     ::SetScrollInfo(scrollHwnd, bar, &si, TRUE);
-    ::ShowScrollBar(scrollHwnd, bar, total > page);
+    ::ShowScrollBar(scrollHwnd, bar, keepScrollBarsVisible || total > page);
 }
 
 CPoint CMyScrollView::ClampScrollPosition(CPoint pt) const

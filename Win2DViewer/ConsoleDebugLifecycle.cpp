@@ -16,10 +16,10 @@ namespace ConsoleDebugLifecycle
         bool gConsoleAllocated = false;
         bool gConsoleOwnedByApp = false;
         bool gConsoleCtrlHandlerInstalled = false;
-        HANDLE gConsoleCloseNotifyEvent = nullptr;
-        HANDLE gConsoleCtrlFallbackEvent = nullptr;
-        HANDLE gConsoleMonitorStopEvent = nullptr;
-        HANDLE gConsoleMonitorThread = nullptr;
+        wil::unique_handle gConsoleCloseNotifyEvent;
+        wil::unique_handle gConsoleCtrlFallbackEvent;
+        wil::unique_handle gConsoleMonitorStopEvent;
+        wil::unique_handle gConsoleMonitorThread;
         HWND gConsoleStateSyncTargetWindow = nullptr;
         std::atomic_bool gConsoleDetachInProgress = false;
 
@@ -41,6 +41,7 @@ namespace ConsoleDebugLifecycle
             DiagnosticConsole::LineBuilder line;
             line << L"[ConsoleDebug] close-signal source=" << source << L", detaching console.";
             DiagnosticConsole::WriteLine(line.str());
+            StopConsoleCloseMonitor();
 
             if (gConsoleOwnedByApp)
             {
@@ -85,9 +86,9 @@ namespace ConsoleDebugLifecycle
                     // Close/logoff/shutdown notifications are best-effort cleanup signals.
                     // Returning TRUE requests handling, but Windows can still terminate the
                     // process afterward. We therefore trigger fallback cleanup immediately.
-                    if (gConsoleCtrlFallbackEvent != nullptr)
+                    if (gConsoleCtrlFallbackEvent)
                     {
-                        (void)::SetEvent(gConsoleCtrlFallbackEvent);
+                        (void)::SetEvent(gConsoleCtrlFallbackEvent.get());
                     }
                     return TRUE;
 
@@ -98,7 +99,9 @@ namespace ConsoleDebugLifecycle
 
         DWORD WINAPI ConsoleCloseMonitorThreadProc(LPVOID)
         {
-            HANDLE waits[] = { gConsoleMonitorStopEvent, gConsoleCloseNotifyEvent, gConsoleCtrlFallbackEvent };
+            HANDLE waits[] = { gConsoleMonitorStopEvent.get(),
+                               gConsoleCloseNotifyEvent.get(),
+                               gConsoleCtrlFallbackEvent.get() };
             for (;;)
             {
                 const DWORD waitResult = ::WaitForMultipleObjects(_countof(waits), waits, FALSE, INFINITE);
@@ -109,12 +112,12 @@ namespace ConsoleDebugLifecycle
                 if (waitResult == WAIT_OBJECT_0 + 1)
                 {
                     DetachDebugConsoleAfterCloseSignal(L"ConhostSubclassNotify");
-                    continue;
+                    return 0;
                 }
                 if (waitResult == WAIT_OBJECT_0 + 2)
                 {
                     DetachDebugConsoleAfterCloseSignal(L"ConsoleCtrlHandlerFallback");
-                    continue;
+                    return 0;
                 }
                 return 1;
             }
@@ -122,18 +125,17 @@ namespace ConsoleDebugLifecycle
 
         bool StartConsoleCloseMonitor()
         {
-            if (gConsoleMonitorThread != nullptr)
+            if (gConsoleMonitorThread)
             {
                 return true;
             }
 
             const std::wstring notifyEventName =
                 ConsoleHookIpc::BuildConsoleCloseNotifyEventName(::GetCurrentProcessId());
-            gConsoleCloseNotifyEvent = ::CreateEventW(nullptr, FALSE, FALSE, notifyEventName.c_str());
-            gConsoleCtrlFallbackEvent = ::CreateEventW(nullptr, FALSE, FALSE, nullptr);
-            gConsoleMonitorStopEvent = ::CreateEventW(nullptr, TRUE, FALSE, nullptr);
-            if (gConsoleCloseNotifyEvent == nullptr || gConsoleCtrlFallbackEvent == nullptr ||
-                gConsoleMonitorStopEvent == nullptr)
+            auto closeNotifyEvent = wil::unique_handle(::CreateEventW(nullptr, FALSE, FALSE, notifyEventName.c_str()));
+            auto ctrlFallbackEvent = wil::unique_handle(::CreateEventW(nullptr, FALSE, FALSE, nullptr));
+            auto monitorStopEvent = wil::unique_handle(::CreateEventW(nullptr, TRUE, FALSE, nullptr));
+            if (!closeNotifyEvent || !ctrlFallbackEvent || !monitorStopEvent)
             {
                 StopConsoleCloseMonitor();
                 return false;
@@ -144,13 +146,18 @@ namespace ConsoleDebugLifecycle
                 gConsoleCtrlHandlerInstalled = !!::SetConsoleCtrlHandler(&DebugConsoleCtrlHandler, TRUE);
             }
 
-            gConsoleMonitorThread = ::CreateThread(nullptr, 0, &ConsoleCloseMonitorThreadProc, nullptr, 0, nullptr);
-            if (gConsoleMonitorThread == nullptr)
+            auto monitorThread =
+                wil::unique_handle(::CreateThread(nullptr, 0, &ConsoleCloseMonitorThreadProc, nullptr, 0, nullptr));
+            if (!monitorThread)
             {
                 StopConsoleCloseMonitor();
                 return false;
             }
 
+            gConsoleCloseNotifyEvent = std::move(closeNotifyEvent);
+            gConsoleCtrlFallbackEvent = std::move(ctrlFallbackEvent);
+            gConsoleMonitorStopEvent = std::move(monitorStopEvent);
+            gConsoleMonitorThread = std::move(monitorThread);
             return true;
         }
 
@@ -162,36 +169,23 @@ namespace ConsoleDebugLifecycle
                 gConsoleCtrlHandlerInstalled = false;
             }
 
-            if (gConsoleMonitorStopEvent != nullptr)
+            if (gConsoleMonitorStopEvent)
             {
-                (void)::SetEvent(gConsoleMonitorStopEvent);
+                (void)::SetEvent(gConsoleMonitorStopEvent.get());
             }
 
-            if (gConsoleMonitorThread != nullptr)
+            if (gConsoleMonitorThread)
             {
-                if (::GetCurrentThreadId() != ::GetThreadId(gConsoleMonitorThread))
+                if (::GetCurrentThreadId() != ::GetThreadId(gConsoleMonitorThread.get()))
                 {
-                    (void)::WaitForSingleObject(gConsoleMonitorThread, 2000);
+                    (void)::WaitForSingleObject(gConsoleMonitorThread.get(), 2000);
                 }
-                ::CloseHandle(gConsoleMonitorThread);
-                gConsoleMonitorThread = nullptr;
             }
 
-            if (gConsoleMonitorStopEvent != nullptr)
-            {
-                ::CloseHandle(gConsoleMonitorStopEvent);
-                gConsoleMonitorStopEvent = nullptr;
-            }
-            if (gConsoleCloseNotifyEvent != nullptr)
-            {
-                ::CloseHandle(gConsoleCloseNotifyEvent);
-                gConsoleCloseNotifyEvent = nullptr;
-            }
-            if (gConsoleCtrlFallbackEvent != nullptr)
-            {
-                ::CloseHandle(gConsoleCtrlFallbackEvent);
-                gConsoleCtrlFallbackEvent = nullptr;
-            }
+            gConsoleMonitorThread.reset();
+            gConsoleMonitorStopEvent.reset();
+            gConsoleCloseNotifyEvent.reset();
+            gConsoleCtrlFallbackEvent.reset();
         }
     } // namespace
 

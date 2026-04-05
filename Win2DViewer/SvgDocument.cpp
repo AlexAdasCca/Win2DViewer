@@ -6,21 +6,20 @@ namespace
 {
     std::wstring FormatWin32ErrorMessage(DWORD errorCode)
     {
-        LPWSTR buffer = nullptr;
+        wil::unique_hlocal_string buffer;
         const DWORD flags = FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS;
         const DWORD size = ::FormatMessageW(flags,
                                             nullptr,
                                             errorCode,
                                             MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                                            reinterpret_cast<LPWSTR>(&buffer),
+                                            reinterpret_cast<LPWSTR>(buffer.addressof()),
                                             0,
                                             nullptr);
 
         std::wstring message;
-        if (size != 0 && buffer != nullptr)
+        if (size != 0 && buffer)
         {
-            message.assign(buffer, size);
-            ::LocalFree(buffer);
+            message.assign(buffer.get(), size);
         }
         else
         {

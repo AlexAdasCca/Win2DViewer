@@ -1,9 +1,9 @@
 #pragma once
 
-#include "CallBackTimer.h"
 #include "ConsoleDebugMessages.h"
 #include "MyScrollView.h"
 #include "SvgDocument.h"
+#include "WaitableRenderTimer.h"
 #include "WinrtNsAliases.h"
 
 #include <d2d1svg.h>
@@ -39,6 +39,12 @@ public:
         SvgOverEffects = 1,
         SvgOnly = 2,
         EffectsOnly = 3
+    };
+
+    enum class RenderUpdatePolicy
+    {
+        StaticOptimized = 0,
+        DynamicFullFrame = 1
     };
 
     DECLARE_WND_CLASS_EX(L"Win2DViewer.WTLView", CS_DBLCLKS, 0)
@@ -85,6 +91,16 @@ private:
     void SurfaceScroll(CPoint const& newPosition);
     void Zoom(int zDelta, CPoint screenPoint);
     bool ShouldAnimateEffects() const noexcept;
+    RenderUpdatePolicy GetRenderUpdatePolicy() const noexcept;
+    void StopRenderTimer() noexcept;
+    void TryStartRenderTimer();
+    void QueueRenderTick();
+    void UpdateScrollBarVisibilityPolicy();
+    void MarkSvgLayerDirty() noexcept;
+    bool RenderSvgLayer(wna::cv::core::ICanvasResourceCreator const& resourceCreator,
+                        float viewportWidth,
+                        float viewportHeight,
+                        wna::wd::num::float3x2 const& viewTransform);
     void DrawSvgTextOverlay(wna::cv::core::CanvasDrawingSession const& session,
                             wna::wd::num::float3x2 const& transform);
 
@@ -116,54 +132,59 @@ private:
     LRESULT OnRenderTick(UINT, WPARAM, LPARAM, BOOL&);
 
 private:
+    // Document and layer model.
     CSvgDocument* document = nullptr;
+    RenderLayerMode renderLayerMode = RenderLayerMode::EffectsOverSvg;
+    wna::cv::svg::CanvasSvgDocument svgDocument{ nullptr };
+    wna::rt::hstring svgXml;
+    float svgDocumentWidth = 0.0f;
+    float svgDocumentHeight = 0.0f;
+    std::vector<SvgTextOverlayItem> svgTextOverlays;
 
-    wna::wd::uic::Compositor compositor;
-    wna::wd::uid::DesktopWindowTarget target{ nullptr };
-    wna::wd::uic::ContainerVisual root{ nullptr };
-    wna::wd::uic::SpriteVisual contentVisual{ nullptr };
-
+    // View transform and interaction state.
     int currentDpi = USER_DEFAULT_SCREEN_DPI;
     int width = 0;
     int height = 0;
-    float angle = 0.0f;
-
-    wna::cv::core::CanvasDevice canvasDevice{ nullptr };
-    DeviceLostHelper deviceLostHelper;
-    bool inDeviceLost = false;
-    wna::wd::uic::CompositionGraphicsDevice graphicsDevice{ nullptr };
-    wna::wd::uic::CompositionDrawingSurface drawingSurface{ nullptr };
-    wna::cv::core::CanvasRenderTarget sceneBitmap{ nullptr };
-    wna::cv::core::CanvasRenderTarget trailBitmap{ nullptr };
-
-    CallBackTimer renderTimer;
-
-    wna::cv::svg::CanvasSvgDocument svgDocument{ nullptr };
-    wna::rt::hstring svgXml;
-
-    wna::cv::eff::MorphologyEffect morphologyEffect{ nullptr };
-    wna::cv::eff::CompositeEffect compositeEffect{ nullptr };
-    wna::cv::eff::Transform2DEffect flameAnimation{ nullptr };
-    wna::cv::eff::Transform2DEffect flamePosition{ nullptr };
-    std::string displayText;
-    std::string pendingText;
-    float fontSize = 10.0f;
-
+    int ppmBitmapResolution = 72;
+    wna::wd::num::float3x2 transformMatrix{ 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f };
     bool translateDragging = false;
     CPoint currentMouse;
     CSize scrollDiff{ 0, 0 };
     clock_t scrollStartTime = 0;
     unsigned int scrollTimeDiff = 0;
-    bool idleTranslateDragging = false;
     DWORD displayFrequency = 60;
+    float angle = 0.0f;
 
-    int ppmBitmapResolution = 72;
-    wna::wd::num::float3x2 transformMatrix{ 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f };
-    float svgDocumentWidth = 0.0f;
-    float svgDocumentHeight = 0.0f;
+    // Composition and rendering resources.
+    wna::wd::uic::Compositor compositor;
+    wna::wd::uid::DesktopWindowTarget target{ nullptr };
+    wna::wd::uic::ContainerVisual root{ nullptr };
+    wna::wd::uic::SpriteVisual contentVisual{ nullptr };
+    wna::cv::core::CanvasDevice canvasDevice{ nullptr };
+    DeviceLostHelper deviceLostHelper;
+    bool inDeviceLost = false;
+    wna::wd::uic::CompositionGraphicsDevice graphicsDevice{ nullptr };
+    wna::wd::uic::CompositionDrawingSurface drawingSurface{ nullptr };
+    wna::cv::core::CanvasRenderTarget svgLayerBitmap{ nullptr };
+    wna::cv::core::CanvasRenderTarget sceneBitmap{ nullptr };
+    wna::cv::core::CanvasRenderTarget trailBitmap{ nullptr };
+    wna::cv::core::CanvasRenderTarget effectsTextBitmap{ nullptr };
+    bool svgLayerDirty = true;
+    wna::cv::eff::MorphologyEffect morphologyEffect{ nullptr };
+    wna::cv::eff::CompositeEffect compositeEffect{ nullptr };
+    wna::cv::eff::Transform2DEffect flameAnimation{ nullptr };
+    wna::cv::eff::Transform2DEffect flamePosition{ nullptr };
+    std::string pendingText;
+    std::string displayText;
+    float fontSize = 10.0f;
+
+    // Timing and render scheduling.
+    WaitableRenderTimer renderTimer;
     std::atomic_bool renderTickQueued{ false };
-    RenderLayerMode renderLayerMode = RenderLayerMode::EffectsOverSvg;
-    std::vector<SvgTextOverlayItem> svgTextOverlays;
+    std::chrono::nanoseconds activeRenderIntervalNs{ 0 };
+    std::chrono::steady_clock::time_point lastRenderTickTime{};
+
+    // Diagnostics and debug state.
     bool consoleDebugEnabled = false;
     int lastLoggedTextOverlayCount = -1;
     int lastLoggedTextOverlayFailures = -1;

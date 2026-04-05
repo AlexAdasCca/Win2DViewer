@@ -68,24 +68,49 @@ void CWin2DView::Zoom(int zDelta, CPoint screenPoint)
     scrollPosition = ClampScrollPosition(scrollPosition);
     transformMatrix.m31 = static_cast<float>(-scrollPosition.x);
     transformMatrix.m32 = static_cast<float>(-scrollPosition.y);
+    MarkSvgLayerDirty();
     ScrollToPosition(scrollPosition);
-    Invalidate();
+    if (GetRenderUpdatePolicy() == RenderUpdatePolicy::DynamicFullFrame)
+    {
+        QueueRenderTick();
+    }
+    else
+    {
+        Invalidate();
+    }
 }
 
 LRESULT CWin2DView::OnHScroll(UINT, WPARAM wParam, LPARAM, BOOL&)
 {
+    if (renderLayerMode == RenderLayerMode::EffectsOnly)
+    {
+        return 0;
+    }
+
     HandleHorizontalScroll(LOWORD(wParam), HIWORD(wParam));
     return 0;
 }
 
 LRESULT CWin2DView::OnVScroll(UINT, WPARAM wParam, LPARAM, BOOL&)
 {
+    if (renderLayerMode == RenderLayerMode::EffectsOnly)
+    {
+        return 0;
+    }
+
     HandleVerticalScroll(LOWORD(wParam), HIWORD(wParam));
     return 0;
 }
 
 LRESULT CWin2DView::OnMouseWheel(UINT, WPARAM wParam, LPARAM lParam, BOOL&)
 {
+    if (renderLayerMode == RenderLayerMode::EffectsOnly)
+    {
+        // EffectsOnly has no document-space viewport. Ignore wheel zoom to
+        // prevent hidden scroll state changes from perturbing effect rendering.
+        return 0;
+    }
+
     Zoom((GET_WHEEL_DELTA_WPARAM(wParam) < 0 ? 1 : -1) * ppmBitmapResolution * 25 / 4,
          CPoint(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)));
     return 0;
